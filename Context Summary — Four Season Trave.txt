@@ -1,0 +1,97 @@
+Context Summary — Four Season Travel Project
+
+1. Tổng quan dự án
+
+Mục tiêu: Web du lịch Việt Nam — xem địa điểm, đặt tour, đọc cẩm nang, tìm kiếm AI
+Tech stack:
+
+Frontend: ReactJS + TailwindCSS + i18next (VI/EN) + Meilisearch SDK
+Backend: Java Spring Boot 4.x + Spring Security + JWT
+Database: MongoDB (local) + MongoDB Compass
+Search: Meilisearch (chạy .exe local, port 7700)
+Upload ảnh: Cloudinary (qua Spring Boot)
+Email: Gmail SMTP (Spring Mail)
+AI service: Python FastAPI (chưa làm — Giai đoạn 6)
+
+
+Cấu trúc thư mục:
+
+  four_season_travel/
+  ├── backend/      ← IntelliJ, port 8080, baseURL /api/v1
+  ├── frontend/     ← VS Code, port 3000
+  └── ai-service/   ← chưa làm
+
+2. Những gì đã hoàn thành
+Backend:
+
+Auth: đăng ký/đăng nhập email+password, Google OAuth2, JWT filter, phân quyền USER/AUTHOR/ADMIN
+Models: User, Tour, Article, Location, Booking
+CRUD đầy đủ cho tất cả models
+Phân quyền SecurityConfig: public GET, AUTHOR tạo tour/bài viết, ADMIN duyệt/quản lý
+Cloudinary upload ảnh (/api/v1/upload/image)
+Booking: tạo booking, sinh mã FST-YYYYMMDD-XXXX, tính cọc 20%, gửi email xác nhận, QR VietQR
+Revenue: thống kê doanh thu theo departureDate của tour, biểu đồ tháng/quý, top 5 tour, pending bookings
+Meilisearch: sync tours/articles/locations, search tổng hợp (/api/v1/search)
+Auto-sync Meilisearch khi Spring Boot start (MeilisearchStartupSync)
+
+Frontend:
+
+Navbar: logo → SearchBar → menu links → ngôn ngữ → tài khoản (dropdown phân quyền)
+SearchBar: Meilisearch realtime dropdown, lịch sử tìm kiếm localStorage, gợi ý phổ biến, nút 📷 AI placeholder
+HomePage: Hero với SearchBar lớn, gợi ý nhanh
+SearchPage: tabs lọc, sidebar filter (giá/ngày/địa điểm), sort, skeleton loading
+ToursPage: hiển thị tour có ảnh, ngày khởi hành, giá
+ArticlesPage: card bài viết có ảnh + địa điểm
+ArticleDetail: cấu trúc title → email/ngày/địa điểm → content → ảnh → sections con
+LocationDetail: carousel ảnh + thumbnail + gallery grid + lightbox fullscreen + tour liên quan
+AuthorDashboard: bảng tour/bài viết với cột trạng thái, thao tác, thống kê
+AdminDashboard: duyệt tour/bài viết, quản lý địa điểm (upload nhiều ảnh), quản lý user, xác nhận booking, custom Dialog (thay alert/confirm)
+CreateTourPage: dropdown thời gian, date picker, giá có dấu chấm, upload nhiều ảnh
+CreateArticlePage: sections động (thêm/xóa/di chuyển mục), upload ảnh bìa
+BookingPage: 3 bước (form → QR → success), tự điền tên/email từ tài khoản, đếm ngược 120s tự xác nhận
+RevenuePage: biểu đồ Recharts, top 5, modal pending bookings
+LoginPage/RegisterPage: form + Google OAuth2
+
+
+3. Đang làm dở / Vấn đề còn tồn tại
+Chưa hoàn thành:
+
+AI service Python FastAPI — nhận diện địa điểm từ ảnh (nút 📷 đã có UI, chưa có logic)
+Nút "Xóa User" trong AdminDashboard có UI nhưng chưa gọi API handleDeleteUser
+Deploy (Vercel + Render + MongoDB Atlas) chưa làm
+
+Vấn đề đã biết:
+
+Meilisearch phải chạy thủ công (meilisearch.exe) trước Spring Boot — nếu quên thì search lỗi nhưng app vẫn chạy bình thường nhờ @Lazy
+Meilisearch dùng @Lazy + setter injection để tránh crash khi khởi động
+Sync Meilisearch gọi ở Controller (không phải Service) để tránh null injection
+SearchBar export từ Navbar.jsx — HomePage import lại dùng để tránh re-render mất focus
+
+
+4. Quyết định kiến trúc quan trọng
+Backend:
+
+Base URL: /api/v1/ cho tất cả endpoints
+JWT token lưu role trong payload, JwtFilter đọc và set SecurityContext
+SecurityConfig rule cụ thể đặt TRƯỚC rule chung (my-tours/my-articles trước tours/**)
+Booking status flow: pending_payment → confirmed (Admin xác nhận) → tính vào doanh thu
+Doanh thu tính theo departureDate của Tour, không phải ngày đặt/xác nhận
+Tour hết chỗ (availableSlots = 0) ẩn khỏi giao diện nhưng giữ trong DB
+availableSlots luôn set = maxSlots ở backend khi tạo tour (không tin frontend)
+Cloudinary: backend ký và upload, frontend chỉ gửi file binary
+
+Frontend:
+
+localStorage keys: token, userEmail, userName, userRole
+i18n: ngôn ngữ vn/en, file config trong src/i18n.js
+axios baseURL: http://localhost:8080/api/v1, interceptor tự gắn JWT header
+Article có field sections: [{heading, body}] cho nội dung con động
+Location lưu images[] — index 0 là ảnh bìa, các ảnh sau là gallery
+
+Meilisearch:
+
+Master key: fourSeasonMasterKey2024, port 7700
+Index names: tours, articles, locations
+Sync tự động khi Spring Boot start + khi admin duyệt/từ chối nội dung
+Frontend gọi thẳng Meilisearch (port 7700) cho realtime dropdown
+Backend /api/v1/search dùng cho SearchPage đầy đủ
