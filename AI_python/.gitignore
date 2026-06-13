@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+.env
+
+# GIẤU CÁC FILE NẶNG ĐỂ GITHUB KHÔNG CHẶN
+*.keras
+convert.py
+fix_model.py

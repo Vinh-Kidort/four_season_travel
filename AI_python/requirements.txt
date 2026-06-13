@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+python-multipart
+ai-edge-litert
+pillow
+numpy<2.0.0

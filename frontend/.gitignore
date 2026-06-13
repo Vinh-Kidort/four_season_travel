@@ -3,6 +3,10 @@
 # Bỏ qua thư viện thư viện nặng
 node_modules/
 
+# Bỏ qua thư mục Meilisearch nội bộ
+meilisearch/
+*.exe
+
 # Bỏ qua file môi trường
 .env
 .env.local
