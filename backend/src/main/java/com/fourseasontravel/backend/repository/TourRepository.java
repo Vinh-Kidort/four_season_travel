@@ -4,6 +4,9 @@ import com.fourseasontravel.backend.model.Tour;
 import org.springframework.data.mongodb.repository.MongoRepository;
 import org.springframework.stereotype.Repository;
 import java.util.List;
+import org.springframework.data.mongodb.repository.Aggregation;
+
+
 
 @Repository
 public interface TourRepository extends MongoRepository<Tour, String> {
@@ -19,4 +22,10 @@ public interface TourRepository extends MongoRepository<Tour, String> {
     List<Tour> findByIsRejectedTrue();
 
     List<Tour> findByAuthor(String author);
+
+    @Aggregation(pipeline = {
+            "{ '$search': { 'index': 'default', 'text': { 'query': ?0, 'path': { 'wildcard': '*' } } } }",
+            "{ '$limit': 20 }"
+    })
+    List<Tour> searchToursByKeyword(String keyword);
 }

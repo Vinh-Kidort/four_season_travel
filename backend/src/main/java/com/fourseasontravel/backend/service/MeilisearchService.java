@@ -12,11 +12,13 @@ import com.fourseasontravel.backend.repository.TourRepository;
 import com.fourseasontravel.backend.repository.ArticleRepository;
 import com.fourseasontravel.backend.repository.LocationRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 @Service
+@ConditionalOnProperty(name = "app.search.meilisearch.enabled", havingValue = "true")
 public class MeilisearchService {
 
     @Autowired private Client             meilisearchClient;

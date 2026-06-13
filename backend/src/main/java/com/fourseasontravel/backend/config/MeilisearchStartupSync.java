@@ -2,12 +2,14 @@ package com.fourseasontravel.backend.config;
 
 import com.fourseasontravel.backend.service.MeilisearchService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
 @Component
+@ConditionalOnProperty(name = "app.search.meilisearch.enabled", havingValue = "true")
 public class MeilisearchStartupSync {
 
     @Autowired
