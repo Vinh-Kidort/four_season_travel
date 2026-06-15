@@ -2,14 +2,21 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Meilisearch } from 'meilisearch';
-
+import axios from '../api/axios'; 
 
 const USE_ATLAS = import.meta.env.VITE_USE_ATLAS_SEARCH === 'true';
 
-const meiliClient = new Meilisearch({
-  host: process.env.REACT_APP_MEILISEARCH_HOST ,
-  apiKey: process.env.REACT_APP_MEILISEARCH_API_KEY,
-});
+const meiliHost = process.env.REACT_APP_MEILISEARCH_HOST;
+const meiliKey = process.env.REACT_APP_MEILISEARCH_API_KEY;
+
+let meiliClient = null;
+// CHỈ khởi tạo Meilisearch nếu biến meiliHost có tồn tại và hợp lệ (bắt đầu bằng http)
+if (meiliHost && meiliHost.startsWith('http')) {
+  meiliClient = new Meilisearch({
+    host: meiliHost,
+    apiKey: meiliKey,
+  });
+}
 
 const POPULAR_KEYWORDS = [
   'Hội An', 'Đà Nẵng', 'Phú Quốc', 'Sapa', 'Hạ Long',
@@ -87,24 +94,12 @@ export function SearchBar({ compact = false }) {
     }
     const timer = setTimeout(async () => {
       setIsSearching(true);
-      try {
-        if (USE_ATLAS) {
-          // ── Prod: gọi qua backend API ──────────────────────────
-          const res = await fetch(
-            `/api/v1/search?keyword=${encodeURIComponent(keyword)}`,
-            { headers: { 'Content-Type': 'application/json' } }
-          );
-          const data = await res.json();
-          setResults({
-            tours:     data.tours     || [],
-            articles:  data.articles  || [],
-            locations: data.locations || [],
-          });
-        } else {
-          // ── Local: gọi thẳng Meilisearch ──────────────────────
+       try {
+        // KIỂM TRA ĐIỀU KIỆN: Nếu có Meilisearch (Đang chạy Local)
+        if (meiliClient) {
           const [tourRes, articleRes, locationRes] = await Promise.all([
-            meiliClient.index('tours').search(keyword,     { limit: 3 }),
-            meiliClient.index('articles').search(keyword,  { limit: 2 }),
+            meiliClient.index('tours').search(keyword, { limit: 3 }),
+            meiliClient.index('articles').search(keyword, { limit: 2 }),
             meiliClient.index('locations').search(keyword, { limit: 3 }),
           ]);
           setResults({
@@ -112,8 +107,19 @@ export function SearchBar({ compact = false }) {
             articles:  articleRes.hits,
             locations: locationRes.hits,
           });
+        } 
+        // NẾU KHÔNG CÓ MEILISEARCH (Đang chạy Netlify, dùng MongoDB Atlas Search)
+        else {
+          const response = await axios.get(`/search/quick?q=${encodeURIComponent(keyword)}`);
+          setResults({
+            // Xử lý dữ liệu trả về từ Spring Boot
+            tours:     response.data.tours || [],
+            articles:  response.data.articles || [],
+            locations: response.data.locations || [],
+          });
         }
-      } catch {
+      } catch (error) {
+        console.error("Lỗi tìm kiếm:", error);
         setResults({ tours: [], articles: [], locations: [] });
       } finally {
         setIsSearching(false);
