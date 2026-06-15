@@ -2,6 +2,7 @@ package com.fourseasontravel.backend.controller;
 
 import com.fourseasontravel.backend.model.Article;
 import com.fourseasontravel.backend.service.ArticleService;
+import com.fourseasontravel.backend.service.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +17,9 @@ public class ArticleController {
 
     @Autowired
     private ArticleService articleService;
+
+    @Autowired
+    private SearchService searchService;
 
     @GetMapping
     public ResponseEntity<List<Article>> getAll() {

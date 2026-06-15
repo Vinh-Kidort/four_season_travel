@@ -6,77 +6,197 @@ import com.fourseasontravel.backend.model.Tour;
 import com.fourseasontravel.backend.repository.ArticleRepository;
 import com.fourseasontravel.backend.repository.LocationRepository;
 import com.fourseasontravel.backend.repository.TourRepository;
+import org.bson.Document;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Profile;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.aggregation.*;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
 
 @Service
-// Dòng này nghĩa là: Nếu không cấu hình gì, hoặc enabled = false, thì tự động chạy Atlas Search
-@ConditionalOnProperty(name = "app.search.meilisearch.enabled", havingValue = "false", matchIfMissing = true)
-public class AtlasSearchService implements ISearchService {
+@Profile("prod") // ← Chỉ active khi chạy profile prod
+public class AtlasSearchService implements SearchService {
 
-    @Autowired private TourRepository tourRepository;
-    @Autowired private ArticleRepository articleRepository;
+    @Autowired private MongoTemplate      mongoTemplate;
+    @Autowired private TourRepository     tourRepository;
+    @Autowired private ArticleRepository  articleRepository;
     @Autowired private LocationRepository locationRepository;
 
     @Override
     public Map<String, Object> search(String keyword, String date) {
         Map<String, Object> result = new LinkedHashMap<>();
+        result.put("tours",     searchTours(keyword, date));
+        result.put("articles",  searchArticles(keyword));
+        result.put("locations", searchLocations(keyword));
 
-        // 1. Tìm kiếm qua MongoDB Atlas
-        // (Lưu ý: Bạn phải thêm hàm search bằng @Aggregation vào 3 file Repository nhé)
-        List<Tour> tours = tourRepository.searchToursByKeyword(keyword);
-        List<Article> articles = articleRepository.searchArticlesByKeyword(keyword);
-        List<Location> locations = locationRepository.searchLocationsByKeyword(keyword);
-
-        // 2. Chuyển đổi dữ liệu giống hệt Meilisearch để Frontend không bị lỗi
-        List<Map<String, Object>> mappedTours = new ArrayList<>();
-        for (Tour t : tours) {
-            // Nếu có lọc theo ngày, bỏ qua các tour không khớp ngày
-            if (date != null && !date.isEmpty() && !date.equals(t.getDepartureDate())) continue;
-
-            Map<String, Object> doc = new LinkedHashMap<>();
-            doc.put("id", t.getId());
-            doc.put("type", "tour");
-            doc.put("name", t.getName());
-            doc.put("price", t.getPrice());
-            doc.put("duration", t.getDuration());
-            doc.put("image", (t.getImages() != null && !t.getImages().isEmpty()) ? t.getImages().get(0).getUrl() : "");
-            mappedTours.add(doc);
-        }
-
-        List<Map<String, Object>> mappedArticles = new ArrayList<>();
-        for (Article a : articles) {
-            Map<String, Object> doc = new LinkedHashMap<>();
-            doc.put("id", a.getId());
-            doc.put("type", "article");
-            doc.put("title", a.getTitle());
-            doc.put("author", a.getAuthor());
-            doc.put("image", a.getImageUrl());
-            mappedArticles.add(doc);
-        }
-
-        List<Map<String, Object>> mappedLocations = new ArrayList<>();
-        for (Location l : locations) {
-            Map<String, Object> doc = new LinkedHashMap<>();
-            doc.put("id", l.getId());
-            doc.put("type", "location");
-            doc.put("name", l.getName());
-            doc.put("region", l.getRegion());
-            doc.put("image", (l.getImages() != null && !l.getImages().isEmpty()) ? l.getImages().get(0) : "");
-            mappedLocations.add(doc);
-        }
-
-        result.put("tours", mappedTours);
-        result.put("articles", mappedArticles);
-        result.put("locations", mappedLocations);
-
-        int total = mappedTours.size() + mappedArticles.size() + mappedLocations.size();
-        result.put("total", total);
+        int total = ((List<?>) result.get("tours")).size()
+                + ((List<?>) result.get("articles")).size()
+                + ((List<?>) result.get("locations")).size();
+        result.put("total",   total);
         result.put("keyword", keyword);
-
         return result;
     }
+
+    // ── Tìm Tour ────────────────────────────────────────────────
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> searchTours(String keyword, String date) {
+        try {
+            List<Document> pipeline = new ArrayList<>();
+
+            // $search stage
+            Document searchStage = new Document("$search", new Document()
+                    .append("index", "default")
+                    .append("compound", new Document()
+                            .append("must", List.of(
+                                    new Document("text", new Document()
+                                            .append("query", keyword)
+                                            .append("path", List.of("name", "itinerary"))
+                                            .append("fuzzy", new Document("maxEdits", 1))
+                                    )
+                            ))
+                            .append("filter", List.of(
+                                    new Document("equals", new Document()
+                                            .append("path", "isApproved").append("value", true)),
+                                    new Document("equals", new Document()
+                                            .append("path", "isRejected").append("value", false))
+                            ))
+                    )
+            );
+            pipeline.add(searchStage);
+
+            // $limit
+            pipeline.add(new Document("$limit", 20));
+
+            // $project
+            pipeline.add(new Document("$project", new Document()
+                    .append("_id",            0)
+                    .append("id",             new Document("$toString", "$_id"))
+                    .append("type",           "tour")
+                    .append("name",           1)
+                    .append("itinerary",      1)
+                    .append("price",          1)
+                    .append("duration",       1)
+                    .append("departureDate",  1)
+                    .append("availableSlots", 1)
+                    .append("image", new Document("$let", new Document()
+                            .append("vars", new Document("first",
+                                    new Document("$arrayElemAt", List.of("$images", 0))))
+                            .append("in", "$$first.url")
+                    ))
+            ));
+
+            List<Document> results = mongoTemplate.getDb()
+                    .getCollection("tours")
+                    .aggregate(pipeline, Document.class)
+                    .into(new ArrayList<>());
+
+            return results.stream()
+                    .map(doc -> (Map<String, Object>) new HashMap<>(doc))
+                    .toList();
+
+        } catch (Exception e) {
+            System.err.println("Atlas Search tours error: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    // ── Tìm Article ──────────────────────────────────────────────
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> searchArticles(String keyword) {
+        try {
+            List<Document> pipeline = List.of(
+                    new Document("$search", new Document()
+                            .append("index", "default")
+                            .append("compound", new Document()
+                                    .append("must", List.of(
+                                            new Document("text", new Document()
+                                                    .append("query", keyword)
+                                                    .append("path", List.of("title", "content"))
+                                                    .append("fuzzy", new Document("maxEdits", 1))
+                                            )
+                                    ))
+                                    .append("filter", List.of(
+                                            new Document("equals", new Document()
+                                                    .append("path", "isApproved").append("value", true)),
+                                            new Document("equals", new Document()
+                                                    .append("path", "isRejected").append("value", false))
+                                    ))
+                            )
+                    ),
+                    new Document("$limit", 10),
+                    new Document("$project", new Document()
+                            .append("_id",       0)
+                            .append("id",        new Document("$toString", "$_id"))
+                            .append("type",      "article")
+                            .append("title",     1)
+                            .append("author",    1)
+                            .append("createdAt", 1)
+                            .append("image",     "$imageUrl")
+                    )
+            );
+
+            List<Document> results = mongoTemplate.getDb()
+                    .getCollection("articles")
+                    .aggregate(pipeline, Document.class)
+                    .into(new ArrayList<>());
+
+            return results.stream()
+                    .map(doc -> (Map<String, Object>) new HashMap<>(doc))
+                    .toList();
+
+        } catch (Exception e) {
+            System.err.println("Atlas Search articles error: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    // ── Tìm Location ─────────────────────────────────────────────
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> searchLocations(String keyword) {
+        try {
+            List<Document> pipeline = List.of(
+                    new Document("$search", new Document()
+                            .append("index", "default")
+                            .append("text", new Document()
+                                    .append("query", keyword)
+                                    .append("path", List.of("name", "description", "region"))
+                                    .append("fuzzy", new Document("maxEdits", 1))
+                            )
+                    ),
+                    new Document("$limit", 10),
+                    new Document("$project", new Document()
+                            .append("_id",    0)
+                            .append("id",     new Document("$toString", "$_id"))
+                            .append("type",   "location")
+                            .append("name",   1)
+                            .append("region", 1)
+                            .append("image",  new Document("$arrayElemAt",
+                                    List.of("$images", 0)))
+                    )
+            );
+
+            List<Document> results = mongoTemplate.getDb()
+                    .getCollection("locations")
+                    .aggregate(pipeline, Document.class)
+                    .into(new ArrayList<>());
+
+            return results.stream()
+                    .map(doc -> (Map<String, Object>) new HashMap<>(doc))
+                    .toList();
+
+        } catch (Exception e) {
+            System.err.println("Atlas Search locations error: " + e.getMessage());
+            return new ArrayList<>();
+        }
+    }
+
+    // ── Atlas Search không cần sync ──────────────────────────────
+    @Override public void syncAll()    { /* Atlas tự index */ }
+    @Override public void syncTours()  { /* Atlas tự index */ }
+    @Override public void syncArticles()  { /* Atlas tự index */ }
+    @Override public void syncLocations() { /* Atlas tự index */ }
+    @Override public void deleteDocument(String indexName, String id) { /* Atlas tự xóa */ }
+    @Override public void resetAllIndexes() { /* Atlas tự quản lý */ }
 }

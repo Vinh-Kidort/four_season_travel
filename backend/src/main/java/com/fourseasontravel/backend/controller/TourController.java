@@ -1,6 +1,7 @@
 package com.fourseasontravel.backend.controller;
 
 import com.fourseasontravel.backend.model.Tour;
+import com.fourseasontravel.backend.service.SearchService;
 import com.fourseasontravel.backend.service.TourService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -18,6 +19,9 @@ public class TourController {
 
     @Autowired
     private TourService tourService;
+
+    @Autowired
+    private SearchService searchService;
 
     @Autowired  // ← THÊM DÒNG NÀY
     private com.fourseasontravel.backend.repository.TourRepository tourRepository;

@@ -3,6 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Meilisearch } from 'meilisearch';
 
+
+const USE_ATLAS = import.meta.env.VITE_USE_ATLAS_SEARCH === 'true';
+
 const meiliClient = new Meilisearch({
   host: process.env.REACT_APP_MEILISEARCH_HOST ,
   apiKey: process.env.REACT_APP_MEILISEARCH_API_KEY,
@@ -85,16 +88,31 @@ export function SearchBar({ compact = false }) {
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const [tourRes, articleRes, locationRes] = await Promise.all([
-          meiliClient.index('tours').search(keyword, { limit: 3 }),
-          meiliClient.index('articles').search(keyword, { limit: 2 }),
-          meiliClient.index('locations').search(keyword, { limit: 3 }),
-        ]);
-        setResults({
-          tours:     tourRes.hits,
-          articles:  articleRes.hits,
-          locations: locationRes.hits,
-        });
+        if (USE_ATLAS) {
+          // ── Prod: gọi qua backend API ──────────────────────────
+          const res = await fetch(
+            `/api/v1/search?keyword=${encodeURIComponent(keyword)}`,
+            { headers: { 'Content-Type': 'application/json' } }
+          );
+          const data = await res.json();
+          setResults({
+            tours:     data.tours     || [],
+            articles:  data.articles  || [],
+            locations: data.locations || [],
+          });
+        } else {
+          // ── Local: gọi thẳng Meilisearch ──────────────────────
+          const [tourRes, articleRes, locationRes] = await Promise.all([
+            meiliClient.index('tours').search(keyword,     { limit: 3 }),
+            meiliClient.index('articles').search(keyword,  { limit: 2 }),
+            meiliClient.index('locations').search(keyword, { limit: 3 }),
+          ]);
+          setResults({
+            tours:     tourRes.hits,
+            articles:  articleRes.hits,
+            locations: locationRes.hits,
+          });
+        }
       } catch {
         setResults({ tours: [], articles: [], locations: [] });
       } finally {

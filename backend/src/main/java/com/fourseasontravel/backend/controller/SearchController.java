@@ -1,10 +1,11 @@
 package com.fourseasontravel.backend.controller;
 
-import com.fourseasontravel.backend.service.ISearchService;
 import com.fourseasontravel.backend.service.MeilisearchService;
+import com.fourseasontravel.backend.service.SearchService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.Map;
 
@@ -12,9 +13,9 @@ import java.util.Map;
 @RequestMapping("/api/v1/search")
 public class SearchController {
 
-    // 1. CHỨC NĂNG TÌM KIẾM CHÍNH (Tự động chọn Meilisearch hoặc Atlas)
     @Autowired
-    private ISearchService searchService;
+    private SearchService searchService;
+
 
     // 2. CÁC HÀM SYNC RIÊNG CỦA MEILISEARCH (Có thể bị null nếu tắt Meili)
     @Autowired(required = false)
@@ -74,16 +75,16 @@ public class SearchController {
     @PostMapping("/sync/reset")
     public ResponseEntity<String> resetAndSync() {
         if (meilisearchService == null) {
-            return ResponseEntity.ok("ℹ️ Hệ thống đang dùng Atlas Search. Không cần reset index!");
+            return ResponseEntity.ok(
+                    "ℹ️ Hệ thống đang dùng Atlas Search. Không cần reset index!");
         }
         try {
-            // Xóa index cũ
             meilisearchService.resetAllIndexes();
-            // Sync lại từ MongoDB
             meilisearchService.syncAll();
             return ResponseEntity.ok("✅ Reset và sync hoàn tất!");
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("❌ Lỗi: " + e.getMessage());
+            return ResponseEntity.status(500)  // ← đổi badRequest → 500 cho đúng
+                    .body("❌ Lỗi: " + e.getMessage());
         }
     }
 }
