@@ -15,7 +15,7 @@ public class MongoConfig extends AbstractMongoClientConfiguration {
 
     @Override
     protected String getDatabaseName() {
-        return "four_season_travel";
+        return "fourseason";
     }
 
     // BẮT BUỘC PHẢI THÊM HÀM NÀY để nạp chuỗi kết nối Atlas vào mã Java
