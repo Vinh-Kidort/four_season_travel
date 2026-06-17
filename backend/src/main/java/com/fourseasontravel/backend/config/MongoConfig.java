@@ -1,18 +1,29 @@
 package com.fourseasontravel.backend.config;
 
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoClients;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.mongodb.config.AbstractMongoClientConfiguration;
 
-@Configuration // Đánh dấu đây là file cấu hình hệ thống
+@Configuration
 public class MongoConfig extends AbstractMongoClientConfiguration {
 
-    // Ép buộc Spring Boot dùng tên Database này!
+    // Ép file Java đọc biến môi trường từ application.properties
+    @Value("${spring.data.mongodb.uri}")
+    private String mongoUri;
+
     @Override
     protected String getDatabaseName() {
         return "four_season_travel";
     }
 
-    // Nếu sau này bạn có mật khẩu, sẽ cấu hình thêm ở đây. Hiện tại để mặc định.
+    // BẮT BUỘC PHẢI THÊM HÀM NÀY để nạp chuỗi kết nối Atlas vào mã Java
+    @Override
+    public MongoClient mongoClient() {
+        return MongoClients.create(mongoUri);
+    }
+
     @Override
     public boolean autoIndexCreation() {
         return true;
