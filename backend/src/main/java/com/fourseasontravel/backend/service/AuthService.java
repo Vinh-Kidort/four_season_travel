@@ -13,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -39,10 +40,12 @@ public class AuthService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired private RefreshTokenService refreshTokenService;
+
 
     @Value("${google.client-id}")
     private String googleClientId;
-    // ── BƯỚC 1: Validate + gửi OTP (chưa lưu DB) ────────────────
+    // ── BƯỚC 1: Validate + gửi OTP (chưa lưu DB)
     public void sendRegisterOtp(String name, String email, String password) {
         // Kiểm tra email tồn tại
         if (userRepository.findByEmail(email).isPresent()) {
@@ -56,7 +59,7 @@ public class AuthService {
         otpService.sendOtp(email, name);
     }
 
-    // ── BƯỚC 2: Xác thực OTP + lưu user vào DB ──────────────────
+    // ── BƯỚC 2: Xác thực OTP + lưu user vào DB
     public Map<String, String> verifyAndRegister(String name, String email,
                                                  String password, String otp) {
         // Verify OTP
@@ -92,11 +95,11 @@ public class AuthService {
         userRepository.save(user);
 
         // Tự động login và trả về token
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
+        String token = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
         return createAuthResponse(user, token);
     }
 
-    // ── Validate mật khẩu ────────────────────────────────────────
+    // ── Validate mật khẩu
     private void validatePassword(String password) {
         if (password == null || password.length() < 8) {
             throw new RuntimeException(
@@ -116,90 +119,129 @@ public class AuthService {
         }
     }
 
-    // ── 2. ĐĂNG NHẬP BẰNG MẬT KHẨU (Có chống Spam) ───────────────
+    // ── 2. ĐĂNG NHẬP BẰNG MẬT KHẨU (Có chống Spam)
     // ĐÃ ĐỔI KIỂU TRẢ VỀ THÀNH Map<String, String>
-    public Map<String, String> login(String email, String password) {
+    //  trả về cả refresh token
+    public Map<String, Object> login(String email, String password,
+                                     String userAgent, String ip) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Email không tồn tại!"));
 
-        // CHECK TÀI KHOẢN BỊ XÓA
-        if ("deleted".equals(user.getStatus())) {
-            throw new RuntimeException(
-                    "Tài khoản này đã bị xóa!");
-        }
+        if ("deleted".equals(user.getStatus()))
+            throw new RuntimeException("Tài khoản này đã bị xóa!");
 
-        // Bước 1: Kiểm tra khóa tài khoản
         String lockMsg = lockoutService.checkLocked(user);
-        if (lockMsg != null) {
-            throw new RuntimeException(lockMsg);
-        }
+        if (lockMsg != null) throw new RuntimeException(lockMsg);
 
-        // Bước 2: Kiểm tra mật khẩu
         if (!passwordEncoder.matches(password, user.getPassword())) {
             lockoutService.onLoginFailure(user);
+            // Reload để lấy trạng thái khoá mới nhất
+            user = userRepository.findByEmail(email).orElse(user);
+            if (Boolean.TRUE.equals(user.getIsLocked())) {
+                long minutesLeft = java.time.Duration.between(
+                        LocalDateTime.now(), user.getLockedUntil()).toMinutes() + 1;
+                throw new RuntimeException(
+                        "Tài khoản bị khóa! Thử lại sau " + minutesLeft + " phút.");
+            }
             int remaining = 5 - (user.getFailedLoginAttempts() % 5);
             if (remaining > 0 && user.getFailedLoginAttempts() < 5) {
                 throw new RuntimeException(
-                        "Mật khẩu không đúng! Còn " + remaining + " lần thử trước khi tài khoản bị khóa."
-                );
+                        "Mật khẩu không đúng! Còn " + remaining + " lần thử trước khi tài khoản bị khóa.");
             }
             throw new RuntimeException("Mật khẩu không đúng! Tài khoản đã bị khóa tạm thời.");
         }
 
-        // Bước 3: Thành công -> Xóa lịch sử nhập sai
         lockoutService.onLoginSuccess(user);
+        user = userRepository.findByEmail(email).orElse(user);
 
-        // Tạo Token và trả về Map
-        String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
-        return createAuthResponse(user, token);
+        // Sinh 2 token
+        String accessToken  = jwtUtil.generateAccessToken(email, user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(email);
+        refreshTokenService.saveRefreshToken(refreshToken, email, userAgent, ip);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("accessToken",        accessToken);
+        result.put("refreshToken",       refreshToken);
+        result.put("token",              accessToken);
+        result.put("role",               user.getRole());
+        result.put("email",              user.getEmail());
+        result.put("name",               user.getName());
+        result.put("mustChangePassword", Boolean.TRUE.equals(user.getMustChangePassword()));
+        return result;
     }
 
-    // ── 3. ĐĂNG NHẬP BẰNG GOOGLE ─────────────────────────────────
+    // ── Overload cũ — gọi version mới với userAgent/ip rỗng
+    public Map<String, String> login(String email, String password) {
+        Map<String, Object> full = login(email, password, "", "");
+        Map<String, String> compat = new HashMap<>();
+        full.forEach((k, v) -> compat.put(k, v != null ? v.toString() : null));
+        return compat;
+    }
+
+    // ── 3. ĐĂNG NHẬP BẰNG GOOGLE
     // ĐÃ ĐỔI KIỂU TRẢ VỀ THÀNH Map<String, String>
-    public Map<String, String> loginWithGoogle(String googleToken) {
+    public Map<String, Object> loginWithGoogle(String googleToken,
+                                               String userAgent, String ip) {
         try {
-            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new GsonFactory())
+            GoogleIdTokenVerifier verifier = new GoogleIdTokenVerifier.Builder(
+                    new NetHttpTransport(), new GsonFactory())
                     .setAudience(Collections.singletonList(googleClientId))
                     .build();
 
             GoogleIdToken idToken = verifier.verify(googleToken);
-            if (idToken != null) {
-                GoogleIdToken.Payload payload = idToken.getPayload();
-                String email = payload.getEmail();
-                String name = (String) payload.get("name");
-
-                Optional<User> userOptional = userRepository.findByEmail(email);
-                User user;
-
-                if (userOptional.isPresent()) {
-                    user = userOptional.get();
-
-                    if ("deleted".equals(user.getStatus())) {
-                        throw new RuntimeException("Tài khoản này đã bị xóa hoặc ngưng hoạt động!");
-                    }
-
-                    lockoutService.onLoginSuccess(user); // Reset số lần sai
-                } else {
-                    user = new User();
-                    user.setEmail(email);
-                    user.setName(name);
-                    user.setRole("USER");
-                    user.setStatus("active");
-                    user.setPassword(""); // Không cần mật khẩu
-                    userRepository.save(user);
-                }
-
-                String token = jwtUtil.generateToken(user.getEmail(), user.getRole());
-                return createAuthResponse(user, token);
-            } else {
+            if (idToken == null)
                 throw new RuntimeException("Google Token không hợp lệ!");
+
+            GoogleIdToken.Payload payload = idToken.getPayload();
+            String email = payload.getEmail();
+            String name  = (String) payload.get("name");
+
+            Optional<User> userOptional = userRepository.findByEmail(email);
+            User user;
+
+            if (userOptional.isPresent()) {
+                user = userOptional.get();
+                if ("deleted".equals(user.getStatus()))
+                    throw new RuntimeException("Tài khoản này đã bị xóa hoặc ngưng hoạt động!");
+                lockoutService.onLoginSuccess(user);
+            } else {
+                user = new User();
+                user.setEmail(email);
+                user.setName(name);
+                user.setRole("USER");
+                user.setStatus("active");
+                user.setPassword("");
+                userRepository.save(user);
             }
+
+            String accessToken  = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
+            String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+            refreshTokenService.saveRefreshToken(refreshToken, user.getEmail(), userAgent, ip);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("accessToken",        accessToken);
+            result.put("refreshToken",       refreshToken);
+            result.put("token",              accessToken); // ← backward compat
+            result.put("role",               user.getRole());
+            result.put("email",              user.getEmail());
+            result.put("name",               user.getName());
+            result.put("mustChangePassword", false);
+            return result;
+
         } catch (Exception e) {
             throw new RuntimeException("Lỗi xác thực Google: " + e.getMessage());
         }
     }
 
-    // ── HÀM HỖ TRỢ ĐÓNG GÓI DỮ LIỆU TRẢ VỀ FRONTEND ──────────────
+    // ── Overload cũ Google ────────────────────────────────────────
+    public Map<String, String> loginWithGoogle(String googleToken) {
+        Map<String, Object> full = loginWithGoogle(googleToken, "", "");
+        Map<String, String> compat = new HashMap<>();
+        full.forEach((k, v) -> compat.put(k, v != null ? v.toString() : null));
+        return compat;
+    }
+
+    // ── HÀM HỖ TRỢ ĐÓNG GÓI DỮ LIỆU TRẢ VỀ FRONTEND
     private Map<String, String> createAuthResponse(User user, String token) {
         Map<String, String> response = new HashMap<>();
         response.put("token", token);
@@ -210,7 +252,7 @@ public class AuthService {
     }
 
 
-    // ── ĐỔI MẬT KHẨU ─────────────────────────────────────────────
+    // ── ĐỔI MẬT KHẨU
     public void changePassword(String email, String oldPassword,
                                String oldPasswordConfirm, String newPassword) {
 
@@ -253,7 +295,7 @@ public class AuthService {
         changePassword(email, oldPassword, oldPasswordConfirm, newPassword);
     }
 
-    // ── QUÊN MẬT KHẨU — gửi mật khẩu tạm về email ───────────────
+    // ── QUÊN MẬT KHẨU — gửi mật khẩu tạm về email
     public void forgotPassword(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException(
@@ -273,7 +315,7 @@ public class AuthService {
         emailService.sendTempPasswordEmail(email, user.getName(), tempPassword);
     }
 
-    // ── Sinh mật khẩu tạm 10 ký tự ───────────────────────────────
+    // ── Sinh mật khẩu tạm 10 ký tự
     private String generateTempPassword() {
         String upper = "ABCDEFGHJKMNPQRSTUVWXYZ";
         String lower = "abcdefghjkmnpqrstuvwxyz";
@@ -307,7 +349,7 @@ public class AuthService {
         return sb.toString();
     }
 
-    // ── KIỂM TRA CÓ CẦN ĐỔI MẬT KHẨU KHÔNG ───────────────────
+    // ── KIỂM TRA CÓ CẦN ĐỔI MẬT KHẨU KHÔNG
     public boolean mustChangePassword(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản!"));
@@ -320,3 +362,4 @@ public class AuthService {
         return mustChangePassword(email);
     }
 }
+

@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { toggleFavorite, checkFavorite } from '../api/favoriteApi';
+import { tokenManager } from '../api/tokenManager';
 
 export function useFavorite(itemId, itemType) {
   const [favorited, setFavorited] = useState(false);
-  const token = localStorage.getItem('token');
+  const token = tokenManager.getToken();
 
   // Lấy trạng thái Yêu thích ban đầu
   useEffect(() => {

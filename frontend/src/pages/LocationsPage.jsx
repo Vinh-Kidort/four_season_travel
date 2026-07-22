@@ -32,51 +32,67 @@ function LocationsPage() {
   );
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-10">
-      <h1 className="text-3xl font-bold text-gray-800 mb-8">{t('locationsPage.title')}</h1>
+    <div className="max-w-6xl mx-auto px-4 py-6 sm:py-10">
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      {/* Header */}
+      <h1 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-6 sm:mb-8">
+        {t('locationsPage.title')}
+      </h1>
+
+      {/* Grid — 2 cột mobile, 3 cột tablet+ */}
+      <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-6">
         {locations.map(location => {
-          // --- TẠO LOGIC CHỌN NGÔN NGỮ Ở ĐÂY ---
-          // Nếu ngôn ngữ là 'en' VÀ có dữ liệu nameEn thì dùng nameEn, ngược lại dùng name
           const isEng = i18n.language === 'en';
-          
-          const displayTitle = isEng && location.nameEn ? location.nameEn : location.name;
-          const displayDesc = isEng && location.descriptionEn ? location.descriptionEn : location.description;
-          const displayRegion = isEng && location.regionEn ? location.regionEn : location.region;
+          const displayTitle  = isEng && location.nameEn        ? location.nameEn        : location.name;
+          const displayDesc   = isEng && location.descriptionEn ? location.descriptionEn : location.description;
+          const displayRegion = isEng && location.regionEn      ? location.regionEn      : location.region;
 
           return (
-            <Link to={`/locations/${location.id}`} key={location.id} className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg block">
-            {/* KIỂM TRA: Nếu có ảnh thì in ảnh đầu tiên, nếu không có thì in Emoji mặc định */}
-            <div className="relative h-48">
-              {location.images && location.images.length > 0 ? (
-                <img 
-                  src={location.images[0]} 
-                  alt={location.name} 
-                  className="w-full h-full object-cover" 
-                />
-              ) : (
-                <div className="bg-blue-100 h-full flex items-center justify-center text-5xl">
-                  🏝️
-                </div>
-              )}
+            <Link to={`/locations/${location.id}`} key={location.id}
+              className="bg-white rounded-xl shadow-sm overflow-hidden
+                hover:shadow-md transition-all duration-200 block group">
 
-              {/* Rating Badge */}
-              <div className="absolute top-3 left-3 bg-white/90 backdrop-blur px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5 text-sm">
-                <span className="text-yellow-500">⭐</span>
-                <span className="text-yellow-600 font-bold">{location.averageRating || 0}</span>
-                <span className="text-gray-500">({location.reviewCount || 0})</span>
+              {/* Ảnh — nhỏ hơn trên mobile */}
+              <div className="relative h-32 sm:h-44 md:h-48 overflow-hidden">
+                {location.images?.length > 0 ? (
+                  <img src={location.images[0]} alt={displayTitle}
+                    className="w-full h-full object-cover
+                      group-hover:scale-105 transition duration-300" />
+                ) : (
+                  <div className="bg-blue-100 w-full h-full
+                    flex items-center justify-center text-3xl sm:text-5xl">
+                    🏝️
+                  </div>
+                )}
+
+                {/* Rating badge — nhỏ hơn trên mobile */}
+                <div className="absolute top-2 left-2 bg-white/90 backdrop-blur
+                  px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                  <span className="text-yellow-500 text-xs">⭐</span>
+                  <span className="text-yellow-600 font-bold text-xs">
+                    {location.averageRating || 0}
+                  </span>
+                  {/* Ẩn số lượt đánh giá trên mobile */}
+                  <span className="text-gray-500 text-xs hidden sm:inline">
+                    ({location.reviewCount || 0})
+                  </span>
+                </div>
               </div>
-            </div>
-              <div className="p-5">
-                
-                {/* THAY BIẾN VÀO ĐÂY */}
-                <h2 className="text-xl font-bold text-gray-800 mb-1">{displayTitle}</h2>
-                <span className="text-sm text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
+
+              {/* Info */}
+              <div className="p-3 sm:p-5">
+                <h2 className="font-bold text-gray-800 mb-1
+                  text-sm sm:text-xl line-clamp-1">
+                  {displayTitle}
+                </h2>
+                <span className="inline-block text-xs text-blue-600 bg-blue-50
+                  px-2 py-0.5 rounded-full">
                   {displayRegion}
                 </span>
-                <p className="text-gray-500 mt-3 text-sm line-clamp-2">{displayDesc}</p>
-                
+                {/* Description — ẩn trên mobile */}
+                <p className="text-gray-500 mt-2 text-sm line-clamp-2 hidden sm:block">
+                  {displayDesc}
+                </p>
               </div>
             </Link>
           );
@@ -84,7 +100,9 @@ function LocationsPage() {
       </div>
 
       {locations.length === 0 && (
-        <p className="text-center text-gray-400 py-20">{t('locationsPage.noLocations')}</p>
+        <p className="text-center text-gray-400 py-20">
+          {t('locationsPage.noLocations')}
+        </p>
       )}
     </div>
   );

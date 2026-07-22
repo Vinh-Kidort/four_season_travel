@@ -33,15 +33,20 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
-                    config.setAllowedOriginPatterns(List.of("*"));
+                    config.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "https://four-season-travel-sapper.vercel.app"));
                     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                     config.setAllowedHeaders(List.of("*"));
+                    config.setAllowCredentials(true);
                     return config;
                 }))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
                         // ── Public hoàn toàn ──────────────────────────────────────
                         .requestMatchers("/api/v1/auth/**", "/error").permitAll()
+
+                        .requestMatchers("/api/v1/auth/refresh-token").permitAll()
+                        .requestMatchers("/api/v1/auth/logout").permitAll()
+                        .requestMatchers("/api/v1/auth/logout-all").authenticated()
 
                         .requestMatchers(HttpMethod.GET, "/api/v1/search/**").permitAll()
 
@@ -134,7 +139,8 @@ public class SecurityConfig {
                         ).hasAnyAuthority("AUTHOR", "ADMIN")
 
 
-                        .requestMatchers(HttpMethod.GET,  "/api/v1/search/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/search").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/search/image").authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/v1/search/sync/**").hasAuthority("ADMIN")
 
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
@@ -161,6 +167,12 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.DELETE,
                                 "/api/v1/auth/delete-account").authenticated()
+                        .requestMatchers(
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/api-docs/**",
+                                "/v3/api-docs/**"
+                        ).permitAll()
 
                         // ── Còn lại phải đăng nhập ────────────────────────────────
                         .anyRequest().authenticated()

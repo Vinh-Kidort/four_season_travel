@@ -10,6 +10,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.fourseasontravel.backend.model.Review;
 import com.fourseasontravel.backend.repository.ReviewRepository;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -84,6 +86,10 @@ public class BookingService {
         return result;
     }
 
+    @Transactional(
+            rollbackFor = Exception.class,
+            timeout     = 30
+    )
     public Booking createBooking(Booking booking) {
         Tour tour = tourRepository.findById(booking.getTourId())
                 .orElseThrow(() -> new RuntimeException("Tour không tồn tại!"));
@@ -142,10 +148,19 @@ public class BookingService {
             booking.setBookingCode(generateBookingCode());
 
         Booking saved = bookingRepository.save(booking);
-        emailService.sendBookingConfirmation(saved, tour.getName());
+        try {
+            emailService.sendBookingConfirmation(saved, tour.getName());
+        } catch (Exception e) {
+            System.err.println("⚠️ Email error (booking saved): " + e.getMessage());
+        }
+
         return saved;
     }
 
+    @Transactional(
+            rollbackFor = Exception.class,
+            timeout     = 10
+    )
     public Booking confirmBooking(String id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy booking!"));
@@ -155,6 +170,10 @@ public class BookingService {
     }
 
     // Hủy booking → hoàn trả slots
+    @Transactional(
+            rollbackFor = Exception.class,
+            timeout     = 15
+    )
     public Booking cancelBooking(String id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy booking!"));
@@ -197,6 +216,7 @@ public class BookingService {
     }
 
     // ── Hủy booking + tính hoàn tiền ─────────────────────────────
+    @Transactional(rollbackFor = Exception.class)
     public Booking cancelBookingByUser(String bookingId, String email,
                                        String reason) {
         Booking booking = bookingRepository.findById(bookingId)
@@ -266,7 +286,11 @@ public class BookingService {
         return 0;                                                  // Mất 100%
     }
 
-    // ── Rating tour (chỉ user đã checkin) ────────────────────────
+    // ── Rating tour (chỉ user đã checkin)
+    @Transactional(
+            rollbackFor = Exception.class,
+            timeout     = 10
+    )
     public Booking rateTour(String bookingId, String email,
                             int rating, String reviewText) {
         Booking booking = bookingRepository.findById(bookingId)

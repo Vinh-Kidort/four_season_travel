@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import axios from '../api/axios';
 import { uploadImageToCloudinary } from '../api/uploadImage';
 
@@ -11,9 +11,9 @@ function CreateArticlePage() {
   const [isSubmitting,   setIsSubmitting]   = useState(false);
 
   const [form, setForm] = useState({
-    title:      '',
-    summary:    '',   // ← THÊM: tóm tắt
-    content:    '',
+    title:      '', titleEn:   '', 
+    summary:    '', summaryEn: '', 
+    content:    '', contentEn: '',
     locationId: '',
     imageUrl:   '',
     author:     localStorage.getItem('userEmail'),
@@ -104,10 +104,18 @@ function CreateArticlePage() {
     <div className="max-w-4xl mx-auto px-4 py-10">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-3xl font-bold text-gray-800">✍️ Viết Cẩm nang mới</h1>
-        <button onClick={() => navigate('/author')}
-          className="text-gray-500 hover:text-blue-600 font-medium">
-           Quay lại
-        </button>
+        <Link 
+          to="/author" 
+          className="inline-flex items-center gap-2 text-gray-500 hover:text-blue-600 transition group"
+        >
+          {/* Nút tròn chứa icon mũi tên */}
+          <span className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-100 group-hover:bg-blue-100 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />
+            </svg>
+          </span>
+          <span className="font-bold">Quay lại</span>
+        </Link>
       </div>
 
       {message && (
@@ -119,15 +127,29 @@ function CreateArticlePage() {
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-md space-y-6">
 
         {/* Tiêu đề */}
-        <div>
-          <label className="block font-bold text-gray-700 mb-2">
-            Tiêu đề bài viết <span className="text-red-500">*</span>
-          </label>
-          <input type="text" required
-            placeholder="VD: Kinh nghiệm du lịch Hội An tự túc"
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-            onChange={e => setForm({ ...form, title: e.target.value })}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Tiêu đề bài viết 🇻🇳 <span className="text-red-500">*</span>
+            </label>
+            <input type="text" required
+              placeholder="VD: Kinh nghiệm du lịch Hội An tự túc"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-blue-500 outline-none"
+              onChange={e => setForm({ ...form, title: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Article Title 🇬🇧
+            </label>
+            <input type="text"
+              placeholder="VD: Travel Guide to Hoi An"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-blue-500 outline-none"
+              onChange={e => setForm({ ...form, titleEn: e.target.value })}
+            />
+          </div>
         </div>
 
         {/* Địa điểm + Ảnh bìa */}
@@ -170,29 +192,63 @@ function CreateArticlePage() {
           </div>
         </div>
 
+        
         {/* Tóm tắt */}
-        <div>
-          <label className="block font-bold text-gray-700 mb-2">
-            Tóm tắt ngắn
-            <span className="text-gray-400 font-normal text-sm ml-2">(hiển thị ở danh sách bài viết)</span>
-          </label>
-          <input type="text"
-            placeholder="VD: Những kinh nghiệm không thể bỏ qua khi đến Hội An"
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-            onChange={e => setForm({ ...form, summary: e.target.value })}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Tóm tắt ngắn 🇻🇳 
+              <span className="text-gray-400 font-normal text-sm ml-2">
+                (hiển thị ở danh sách bài viết)
+              </span>
+            </label>
+            <input type="text"
+              placeholder="VD: Những kinh nghiệm không thể bỏ qua khi đến Hội An"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-blue-500 outline-none"
+              onChange={e => setForm({ ...form, summary: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Short Summary 🇬🇧
+              <span className="text-gray-400 font-normal text-sm ml-2">
+                (shown in article list)
+              </span>
+            </label>
+            <input type="text"
+              placeholder="VD: Must-know experiences when visiting Hoi An"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-blue-500 outline-none"
+              onChange={e => setForm({ ...form, summaryEn: e.target.value })}
+            />
+          </div>
         </div>
 
         {/* Nội dung chính */}
-        <div>
-          <label className="block font-bold text-gray-700 mb-2">
-            Nội dung mở đầu <span className="text-red-500">*</span>
-          </label>
-          <textarea required rows="5"
-            placeholder="Giới thiệu tổng quan về địa điểm / trải nghiệm của bạn..."
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
-            onChange={e => setForm({ ...form, content: e.target.value })}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Nội dung mở đầu 🇻🇳 <span className="text-red-500">*</span>
+            </label>
+            <textarea required rows="5"
+              placeholder="Giới thiệu tổng quan về địa điểm / trải nghiệm của bạn..."
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-blue-500 outline-none"
+              onChange={e => setForm({ ...form, content: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block font-bold text-gray-700 mb-2">
+              Opening Content 🇬🇧
+            </label>
+            <textarea rows="5"
+              placeholder="Introduce the destination / your experience..."
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-blue-500 outline-none"
+              onChange={e => setForm({ ...form, contentEn: e.target.value })}
+            />
+          </div>
         </div>
 
         {/* ── Sections động ── */}
@@ -253,33 +309,64 @@ function CreateArticlePage() {
                   </div>
                 </div>
 
-                {/* Tiêu đề mục — in đậm */}
-                <div className="mb-3">
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Tiêu đề mục <span className="text-xs text-gray-400">(sẽ in đậm)</span>
-                  </label>
-                  <input type="text"
-                    value={section.heading}
-                    onChange={e => updateSection(idx, 'heading', e.target.value)}
-                    placeholder={`VD: ${idx + 1}. Kiểm tra xe kỹ trước khi xuất phát`}
-                    className="w-full border rounded-lg px-3 py-2 font-bold text-gray-800
-                      focus:ring-2 focus:ring-blue-400 outline-none bg-white"
-                  />
+                {/* Tiêu đề mục */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Tiêu đề mục 🇻🇳
+                      <span className="text-xs text-gray-400 ml-1">(sẽ in đậm)</span>
+                    </label>
+                    <input type="text"
+                      value={section.heading}
+                      onChange={e => updateSection(idx, 'heading', e.target.value)}
+                      placeholder={`VD: ${idx + 1}. Kiểm tra xe kỹ trước khi xuất phát`}
+                      className="w-full border rounded-lg px-3 py-2 font-bold text-gray-800
+                        focus:ring-2 focus:ring-blue-400 outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Section Heading 🇬🇧
+                      <span className="text-xs text-gray-400 ml-1">(will be bold)</span>
+                    </label>
+                    <input type="text"
+                      value={section.headingEn || ''}
+                      onChange={e => updateSection(idx, 'headingEn', e.target.value)}
+                      placeholder={`VD: ${idx + 1}. Check your vehicle before departure`}
+                      className="w-full border rounded-lg px-3 py-2 font-bold text-gray-800
+                        focus:ring-2 focus:ring-blue-400 outline-none bg-white"
+                    />
+                  </div>
                 </div>
 
                 {/* Nội dung mục */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-1">
-                    Nội dung mục
-                  </label>
-                  <textarea
-                    value={section.body}
-                    onChange={e => updateSection(idx, 'body', e.target.value)}
-                    rows="4"
-                    placeholder="Nội dung chi tiết của mục này..."
-                    className="w-full border rounded-lg px-3 py-2 focus:ring-2
-                      focus:ring-blue-400 outline-none bg-white text-sm"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Nội dung mục 🇻🇳
+                    </label>
+                    <textarea
+                      value={section.body}
+                      onChange={e => updateSection(idx, 'body', e.target.value)}
+                      rows="4"
+                      placeholder="Nội dung chi tiết của mục này..."
+                      className="w-full border rounded-lg px-3 py-2 focus:ring-2
+                        focus:ring-blue-400 outline-none bg-white text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-600 mb-1">
+                      Section Content 🇬🇧
+                    </label>
+                    <textarea
+                      value={section.bodyEn || ''}
+                      onChange={e => updateSection(idx, 'bodyEn', e.target.value)}
+                      rows="4"
+                      placeholder="Detailed content of this section..."
+                      className="w-full border rounded-lg px-3 py-2 focus:ring-2
+                        focus:ring-blue-400 outline-none bg-white text-sm"
+                    />
+                  </div>
                 </div>
               </div>
             ))}

@@ -21,12 +21,14 @@ public class Tour {
     private List<String> locationIds; // Danh sách ID các địa điểm tour sẽ đi qua
     private Double price;             // Giá tiền (VD: 2500000)
     private String duration;          // Thời gian (VD: "3 Ngày 2 Đêm")
+    private String durationEn;
     private String itinerary;         // Lịch trình chi tiết
     private String itineraryEn;
     private Integer maxSlots;          // Số chỗ tối đa: 20
     private Integer availableSlots;    // Số chỗ còn lại: 15
     private List<TourImage> images;
     private String experienceDescription;
+    private String experienceDescriptionEn;
     private String status;         // "active" hoặc "inactive"
     private String departureDate;
     private List<TourDeparture> departures;
@@ -37,6 +39,7 @@ public class Tour {
     private String createdAt;  // Ngày tạo
     private Boolean isRejected = false;
     private String region;
+    private String regionEn;
 
 
     @Data
@@ -45,6 +48,7 @@ public class Tour {
     public static class TourImage {
         private String url;
         private String caption;
+        private String captionEn;
     }
 
 

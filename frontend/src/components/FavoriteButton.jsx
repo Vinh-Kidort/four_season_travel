@@ -1,8 +1,9 @@
+import { tokenManager } from '../api/tokenManager';
 import { useFavorite } from '../hooks/useFavorite';
 
 export default function FavoriteButton({ itemId, itemType, onUnfavorite }) {
   const { favorited, toggle } = useFavorite(itemId, itemType);
-  const token = localStorage.getItem('token');
+  const token = tokenManager.getToken();
   
   if (!token) return null; // ẩn nếu chưa login
 

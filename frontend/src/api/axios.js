@@ -1,44 +1,117 @@
 import axios from 'axios';
+import { tokenManager } from './tokenManager';
 
 const api = axios.create({
-    baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8080/api/v1' ,
-    headers: {
-        'Content-Type': 'application/json',
-    }
+  baseURL:         import.meta.env.REACT_API_BASE_URL || 'http://localhost:8080/api/v1',
+  withCredentials: true, // ← Tự động gửi HttpOnly Cookie
+  headers: { 'Content-Type': 'application/json' },
 });
 
-// Trạm kiểm soát Đầu vào
-api.interceptors.request.use((config) => {
-    
-    // 1. Kiểm tra xem có đang bị phạt đếm ngược không
-   const unlockTime = localStorage.getItem('unlockTime');
-    if (unlockTime && Date.now() < parseInt(unlockTime)) {
-        // Trả về Reject thay vì fake Resolve
-        return Promise.reject(new Error('CLIENT_RATE_LIMIT_EXCEEDED'));
-    }
+// ── Request interceptor ───────────────────────────────────────
+api.interceptors.request.use(config => {
 
-    // 2. Nếu bình thường -> Nhét token
-    const token = localStorage.getItem('token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-}, (error) => {
-    return Promise.reject(error);
-});
+  // 1. Kiểm tra client rate limit
+  const unlockTime = localStorage.getItem('unlockTime');
+  if (unlockTime && Date.now() < parseInt(unlockTime)) {
+    return Promise.reject(new Error('CLIENT_RATE_LIMIT_EXCEEDED'));
+  }
 
-// Trạm kiểm soát Đầu ra (Giữ nguyên của bạn)
+  // 2. Gắn access token từ memory (không dùng localStorage nữa)
+  const token = tokenManager.getToken();
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+
+  return config;
+}, error => Promise.reject(error));
+
+// ── Response interceptor ──────────────────────────────────────
+let isRefreshing = false;
+let failedQueue  = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach(p => error ? p.reject(error) : p.resolve(token));
+  failedQueue = [];
+};
+
 api.interceptors.response.use(
-    (response) => response,
-    (error) => {
-        if (error.response && error.response.status === 429) {
-            const retryAfter = error.response.data?.retryAfter || 60; 
-            const unlockTime = Date.now() + (retryAfter * 1000);
-            localStorage.setItem('unlockTime', unlockTime);
-            window.dispatchEvent(new Event('rateLimitExceeded'));
-        }
-        return Promise.reject(error);
+  response => response,
+
+  async error => {
+    const originalRequest = error.config;
+
+    // ── Rate limit 429 ────────────────────────────────────────
+    if (error.response?.status === 429) {
+      const retryAfter = error.response.data?.retryAfter || 60;
+      localStorage.setItem('unlockTime',
+        String(Date.now() + retryAfter * 1000));
+      window.dispatchEvent(new Event('rateLimitExceeded'));
+      return Promise.reject(error);
     }
+
+    // ── Access token hết hạn 401 → tự động refresh ───────────
+    if (error.response?.status === 401
+        && !originalRequest._retry
+        && !originalRequest.url?.includes('/auth/')) {
+
+      // Đang refresh → đưa vào queue chờ
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return api(originalRequest);
+        }).catch(err => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Cookie refreshToken tự gửi kèm nhờ withCredentials
+        const res = await axios.post(
+          `${import.meta.env.REACT_API_BASE_URL
+            || 'http://localhost:8080/api/v1'}/auth/refresh-token`,
+          {},
+          { withCredentials: true }
+        );
+
+        const newToken = res.data.accessToken;
+        tokenManager.setToken(newToken);
+
+        // Cập nhật info user nếu có
+        if (res.data.name)  localStorage.setItem('userName',  res.data.name);
+        if (res.data.email) localStorage.setItem('userEmail', res.data.email);
+        if (res.data.role)  localStorage.setItem('userRole',  res.data.role);
+
+        // Dispatch event để Navbar biết đã refresh
+        window.dispatchEvent(new CustomEvent('tokenRefreshed', {
+          detail: res.data
+        }));
+
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
+
+      } catch (refreshError) {
+        // Refresh thất bại → clear session + về login
+        processQueue(refreshError, null);
+        tokenManager.clearToken();
+        localStorage.removeItem('userName');
+        localStorage.removeItem('userEmail');
+        localStorage.removeItem('userRole');
+
+        // Dispatch event để AuthContext biết
+        window.dispatchEvent(new Event('sessionExpired'));
+
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 export default api;

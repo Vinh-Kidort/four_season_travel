@@ -11,6 +11,7 @@ import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,7 @@ public class UserDeletionService {
     private static final List<String> ACTIVE_BOOKING_STATUSES =
             List.of("pending_payment", "confirmed");
 
+    @Transactional(rollbackFor = Exception.class, timeout = 30)
     public void deleteAccount(String email) {
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy tài khoản!"));

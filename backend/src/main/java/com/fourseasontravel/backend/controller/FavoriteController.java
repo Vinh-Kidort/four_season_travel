@@ -18,6 +18,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+
+@Tag(name = "Favorites", description = "Quản lý mục Yêu thích (Thả tim cho Tour, Địa điểm, Cẩm nang của người dùng)")
 @RestController
 @RequestMapping("/api/v1/favorites")
 @RequiredArgsConstructor
@@ -33,6 +40,13 @@ public class FavoriteController {
         return SecurityContextHolder.getContext().getAuthentication().getName();
     }
 
+
+    @Operation(summary = "Thêm / Bỏ yêu thích một mục (Tour, Địa điểm, Cẩm nang)",
+            description = "Đảo trạng thái yêu thích (Toggle). Nếu mục này đã tồn tại trong danh sách yêu thích của người dùng, hệ thống sẽ tự động xóa đi (Bỏ tim - favorited: false). Nếu chưa có, hệ thống sẽ thêm mới vào danh sách yêu thích (Thả tim - favorited: true).")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Xử lý thành công (Trả về trạng thái thả tim hiện tại)"),
+            @ApiResponse(responseCode = "401", description = "Chưa đăng nhập hoặc Token không hợp lệ")
+    })
     // Toggle: nếu đã thích thì bỏ, chưa thích thì thêm
     @PostMapping("/toggle")
     public ResponseEntity<?> toggle(@RequestBody Map<String, String> body) {
@@ -58,6 +72,13 @@ public class FavoriteController {
         }
     }
 
+
+    @Operation(summary = "Lấy toàn bộ danh sách yêu thích của cá nhân",
+            description = "Truy vấn và trả về đầy đủ thông tin chi tiết các Tour, Địa điểm, Cẩm nang đã yêu thích của người dùng đang đăng nhập, đồng thời kiểm tra trạng thái hoạt động (isActive) của bài viết/tour đó.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lấy danh sách yêu thích thành công"),
+            @ApiResponse(responseCode = "401", description = "Chưa đăng nhập / Token không hợp lệ")
+    })
     // Lấy toàn bộ favorites của user, kèm data đầy đủ
     @GetMapping
     public ResponseEntity<?> getMyFavorites() {
@@ -100,6 +121,13 @@ public class FavoriteController {
         return ResponseEntity.ok(result);
     }
 
+
+    @Operation(summary = "Kiểm tra xem một mục cụ thể có đang được yêu thích hay không",
+            description = "Kiểm tra trạng thái thả tim nhanh của một Tour, Địa điểm, hoặc Cẩm nang cụ thể bằng ID. Dùng để cập nhật biểu tượng Trái tim rỗng/đầy ở phía giao diện Frontend.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Kiểm tra thành công (Trả về true nếu đang thích, false nếu ngược lại)"),
+            @ApiResponse(responseCode = "401", description = "Chưa đăng nhập")
+    })
     // Kiểm tra một item có được yêu thích không
     @GetMapping("/check")
     public ResponseEntity<?> check(@RequestParam String itemId, @RequestParam String itemType) {

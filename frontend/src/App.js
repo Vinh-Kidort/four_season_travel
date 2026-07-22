@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Routes, Route, useLocation } from 'react-router-dom';
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
 import axios from './api/axios'; // Đã thêm import axios cho Guard
-
+import { tokenManager } from './api/tokenManager'; 
 // Import Components
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -37,24 +37,27 @@ import ForceChangePasswordPage from './pages/ForceChangePasswordPage';
 function ForceChangePasswordGuard({ children }) {
   const [mustChange, setMustChange] = useState(false);
   const [checked, setChecked] = useState(false);
-  const token = localStorage.getItem('token');
+  const token = tokenManager.getToken();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!token) { 
+    // Nếu chưa đăng nhập hoặc đang đứng ở trang login/register thì không cần check ép đổi pass
+    if (!token || location.pathname === '/login' || location.pathname === '/register') { 
       setChecked(true); 
       return; 
     }
+
     axios.get('/auth/must-change-password')
       .then(res => {
         setMustChange(res.data.mustChange);
         setChecked(true);
       })
-      .catch(() => setChecked(true));
-  }, [token]);
+      .catch(() => setChecked(true)); // Nếu API lỗi/401 thì cứ cho qua, không được chặn cứng ngầm định
+  }, [token, location.pathname]);
 
-  if (!checked) return null; // Đang check kiểm tra trạng thái thì tạm để trống
-  if (mustChange) return <ForceChangePasswordPage />; // Bị dính mật khẩu tạm -> Ép sang trang đổi
-  return children; // Hợp lệ -> Cho đi tiếp vào các trang bên trong
+  if (!checked) return null; 
+  if (mustChange && location.pathname !== '/settings') return <ForceChangePasswordPage />; 
+  return children; 
 }
 
 function App() {

@@ -113,7 +113,7 @@ function AuthorDashboard() {
   const [departures,    setDepartures]    = useState([]);
   const [showDepModal,  setShowDepModal]  = useState(false);
   const [newDep, setNewDep] = useState({
-    startDate: '', endDate: '', price: '', maxSlots: '', note: ''
+    startDate: '', endDate: '', price: '', maxSlots: '', note: '', noteEn: ''
   });
 
   // Thống kê nhanh
@@ -165,6 +165,12 @@ function AuthorDashboard() {
     setShowDepModal(true);
   };
 
+  // Hàm định dạng tiền tệ với dấu chấm
+  const formatPrice = (value) => {
+    const num = String(value).replace(/\./g, '');
+    return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
   const handleAddDeparture = async () => {
     if (!newDep.startDate || !newDep.endDate || !newDep.price || !newDep.maxSlots) {
       alert('Vui lòng điền đủ thông tin!'); return;
@@ -181,7 +187,7 @@ function AuthorDashboard() {
         availableSlots: slots, // ĐÃ THÊM: Ép Backend nhận đúng số chỗ trống ban đầu bằng maxSlots
       });
       setDepartures(res.data);
-      setNewDep({ startDate: '', endDate: '', price: '', maxSlots: '', note: '' });
+      setNewDep({ startDate: '', endDate: '', price: '', maxSlots: '', note: '' ,noteEn: ''});
     } catch (error) {
       alert('❌ Lỗi khi thêm ngày khởi hành: ' + (error.response?.data || 'Không xác định'));
     }
@@ -343,8 +349,8 @@ function AuthorDashboard() {
                       Giá (VNĐ) *
                     </label>
                     <input type="text" value={newDep.price}
-                      onChange={e => setNewDep({...newDep, price: e.target.value})}
-                      placeholder="VD: 2500000"
+                      onChange={e => setNewDep({...newDep, price: formatPrice(e.target.value)})}
+                      placeholder="VD: 2.500.000"
                       className="w-full border rounded-lg px-3 py-2 text-sm outline-none
                         focus:ring-2 focus:ring-green-400" />
                   </div>
@@ -355,15 +361,21 @@ function AuthorDashboard() {
                     <input type="number" value={newDep.maxSlots} min="1"
                       onChange={e => setNewDep({...newDep, maxSlots: e.target.value})}
                       placeholder="VD: 20"
+                      onWheel={(e) => e.target.blur()}
                       className="w-full border rounded-lg px-3 py-2 text-sm outline-none
                         focus:ring-2 focus:ring-green-400" />
                   </div>
                 </div>
                 <input type="text" value={newDep.note}
                   onChange={e => setNewDep({...newDep, note: e.target.value})}
-                  placeholder="Ghi chú (tùy chọn)"
+                  placeholder="🇻🇳 Ghi chú (tùy chọn) — VD: Tạm ngưng do bão"
                   className="w-full border rounded-lg px-3 py-2 text-sm outline-none
-                    focus:ring-2 focus:ring-green-400 mb-3" />
+                    focus:ring-2 focus:ring-green-400 mb-2" />
+                <input type="text" value={newDep.noteEn}
+                  onChange={e => setNewDep({...newDep, noteEn: e.target.value})}
+                  placeholder="🇬🇧 Note (optional) — VD: Suspended due to storm"
+                  className="w-full border rounded-lg px-3 py-2 text-sm outline-none
+                    focus:ring-2 focus:ring-blue-400 mb-3" />
 
                 {/* Preview tổng ngày */}
                 {newDep.startDate && newDep.endDate && (

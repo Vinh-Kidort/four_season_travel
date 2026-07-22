@@ -15,10 +15,10 @@ import java.util.List;
 public class Article {
     @Id
     private String id;
-
     private String title;
     private String titleEn;
     private String summary;
+    private String summaryEn;
     private String content;
     private String contentEn;
     private String locationId; 
@@ -37,6 +37,8 @@ public class Article {
     @AllArgsConstructor
     public static class ArticleSection {
         private String heading;   // Tiêu đề section (in đậm nhỏ)
+        private String headingEn;
         private String body;      // Nội dung section
+        private String bodyEn;
     }
 }

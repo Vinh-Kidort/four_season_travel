@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import axios from '../api/axios';
 
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
+import { tokenManager } from '../api/tokenManager';
 
 // ── Validate mật khẩu phía frontend ─────────────────────────
 const validatePassword = (password) => {
@@ -185,7 +186,7 @@ function RegisterPage() {
       });
       // Đăng nhập tự động bằng AuthContext
       const { token, role, email, name } = res.data;
-      localStorage.setItem('token', token);
+      tokenManager.setToken(token);
       localStorage.setItem('userEmail', email);
       localStorage.setItem('userName', name);
       localStorage.setItem('userRole', role || 'USER');

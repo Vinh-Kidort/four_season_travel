@@ -278,13 +278,32 @@ function BookingRow({ booking, onCheckIn, onNoShow, actionLoading, canCheckInTod
                 </div>
               </div>
             )}
-            <button
-              onClick={() => onNoShow(booking)}
-              className="bg-red-50 text-red-500 border border-red-200 text-xs font-bold
-                px-3 py-1.5 rounded-lg hover:bg-red-100 transition whitespace-nowrap w-full"
-            >
-              ❌ Không đến
-            </button>
+            {/* Không đến — cũng chỉ active đúng ngày startDate */}
+            {canCheckInToday ? (
+              <button
+                onClick={() => onNoShow(booking)}
+                className="bg-red-50 text-red-500 border border-red-200 text-xs font-bold
+                  px-3 py-1.5 rounded-lg hover:bg-red-100 transition whitespace-nowrap w-full"
+              >
+                ❌ Không đến
+              </button>
+            ) : (
+              <div className="group relative w-full">
+                <button
+                  disabled
+                  className="bg-gray-100 text-gray-400 text-xs font-bold px-3 py-1.5
+                    rounded-lg cursor-not-allowed whitespace-nowrap w-full"
+                >
+                  ❌ Không đến
+                </button>
+                {/* Tooltip */}
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5
+                  bg-gray-800 text-white text-xs rounded-lg px-3 py-1.5 whitespace-nowrap
+                  opacity-0 group-hover:opacity-100 transition pointer-events-none z-10">
+                  Chỉ đánh dấu vào ngày khởi hành
+                </div>
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center">

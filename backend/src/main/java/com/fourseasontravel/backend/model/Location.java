@@ -18,7 +18,6 @@ public class Location {
     private String description;
     private String region;       // Ví dụ: Miền Bắc, Miền Trung...
     private String bestSeason;   // Ví dụ: Mùa Xuân, Mùa Thu...
-
     private String nameEn;        // Tên tiếng Anh (VD: "Ha Long Bay")
     private String descriptionEn; // Mô tả tiếng Anh (VD: "UNESCO World Heritage...")
     private String regionEn;      // Vùng miền (VD: "North Vietnam")

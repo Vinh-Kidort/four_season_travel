@@ -1,7 +1,8 @@
 import axios from './axios';
+import { tokenManager } from './tokenManager';
 
 export const toggleFavorite = async (itemId, itemType) => {
-  const token = localStorage.getItem('token'); // Lấy token từ bộ nhớ
+  const token = tokenManager.getToken(); // Lấy token từ bộ nhớ
   
   return await axios.post(
     '/favorites/toggle', // Đường dẫn API
@@ -19,7 +20,7 @@ export const getMyFavorites = () =>
   axios.get('/favorites');
 
 export const checkFavorite = async (itemId, itemType) => {
-  const token = localStorage.getItem('token');
+  const token = tokenManager.getToken();
   
   return await axios.get(
     `/favorites/check`, 

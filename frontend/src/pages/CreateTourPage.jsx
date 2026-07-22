@@ -23,6 +23,22 @@ const generateDurationOptions = () => {
   return options;
 };
 
+const translateDurationToEn = (viDuration) => {
+  if (!viDuration) return '';
+  if (viDuration === '1 Ngày' || viDuration === '1 Ngày ') return '1 Day';
+  
+  // Dùng Regex để tách số Ngày và Đêm ra dịch tự động
+  const match = viDuration.match(/^(\d+)\s*Ngày\s*(\d+)\s*Đêm$/i);
+  if (match) {
+    const days = match[1];
+    const nights = match[2];
+    const dayStr = days > 1 ? 'Days' : 'Day';
+    const nightStr = nights > 1 ? 'Nights' : 'Night';
+    return `${days} ${dayStr} ${nights} ${nightStr}`;
+  }
+  return viDuration; // Fallback
+};
+
 function CreateTourPage() {
   const navigate = useNavigate();
   const [locations, setLocations] = useState([]);
@@ -32,14 +48,14 @@ function CreateTourPage() {
   const [priceDisplay, setPriceDisplay] = useState(''); // Hiển thị giá có dấu chấm
 
   const [form, setForm] = useState({
-    name: '',
-    region: '',   
+    name: '', nameEn: '', 
+    region: '', regonEn: '',
     price: 0,
     duration: '',
     departureDate: '',
     maxSlots: '',
-    itinerary: '',
-    experienceDescription: '',
+    itinerary: '', itineraryEn: '',
+    experienceDescription: '', experienceDescriptionEn: '',
     locationIds: [],
     images: []
   });
@@ -106,6 +122,15 @@ function CreateTourPage() {
     }));
   };
 
+  const handleCaptionEnChange = (idx, value) => {
+    setForm(prev => ({
+      ...prev,
+      images: prev.images.map((img, i) =>
+        i === idx ? { ...img, captionEn: value } : img
+      )
+    }));
+  };
+
   // ── Submit form ───────────────────────────────────────────────
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -126,15 +151,19 @@ function CreateTourPage() {
     try {
       const dataToSubmit = {
         name:          form.name,
+        nameEn:        form.nameEn,
         region:        form.region,
+        regionEn:      form.regionEn,
         locationIds:   form.locationIds,
         price:         parseFloat(String(form.price).replace(/\./g, '')), // Xóa dấu chấm trước khi parse
         duration:      form.duration,
+        durationEn:    translateDurationToEn(form.duration), 
         departureDate: form.departureDate,
         maxSlots:      parseInt(String(form.maxSlots), 10),
-        // ← KHÔNG gửi availableSlots, để backend tự set = maxSlots
         itinerary:     form.itinerary,
+        itineraryEn:   form.itineraryEn,
         experienceDescription: form.experienceDescription,
+        experienceDescriptionEn: form.experienceDescriptionEn,
         images:        form.images,
         author:        localStorage.getItem('userEmail'),
         createdAt:     new Date().toISOString().split('T')[0]
@@ -184,16 +213,29 @@ function CreateTourPage() {
       <form onSubmit={handleSubmit} className="bg-white p-8 rounded-xl shadow-md space-y-6">
 
         {/* Tên tour */}
-        <div>
-          <label className="block font-medium text-gray-700 mb-2">
-            Tên Tour <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text" required
-            placeholder="VD: Tour Đà Lạt mùa hoa dã quỳ"
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-400 outline-none"
-            onChange={e => setForm({ ...form, name: e.target.value })}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Tên Tour 🇻🇳 <span className="text-red-500">*</span>
+            </label>
+            <input type="text" required
+              placeholder="VD: Tour Đà Lạt mùa hoa dã quỳ"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-green-400 outline-none"
+              onChange={e => setForm({ ...form, name: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Tour Name 🇬🇧
+            </label>
+            <input type="text"
+              placeholder="VD: Da Lat Wildflower Tour"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-green-400 outline-none"
+              onChange={e => setForm({ ...form, nameEn: e.target.value })}
+            />
+          </div>
         </div>
 
         {/* Địa điểm */}
@@ -393,34 +435,78 @@ function CreateTourPage() {
               <option value="Miền Nam">☀️ Miền Nam</option>
             </select>
           </div>
+
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Region 🇬🇧 <span className="text-red-500">*</span>
+            </label>
+            <select
+              required
+              value={form.regionEn}
+              onChange={e => setForm({ ...form, regionEn: e.target.value })}
+              className="w-full border rounded-lg px-4 py-2 focus:ring-2
+                focus:ring-green-400 outline-none bg-white"
+            >
+              <option value="">-- Select region --</option>
+              <option value="North">🌿 North</option>
+              <option value="Central">🌤️ Central</option>
+              <option value="South">☀️ South</option>
+            </select>
+          </div>
         </div>
 
         {/* Lịch trình */}
-        <div>
-          <label className="block font-medium text-gray-700 mb-2">
-            Lịch trình chi tiết <span className="text-red-500">*</span>
-          </label>
-          <textarea
-            required rows="8"
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-400 outline-none"
-            placeholder={
-              `Ngày 1: Khởi hành từ TP.HCM, đến Đà Lạt, nhận phòng khách sạn...\nNgày 2: Tham quan hồ Xuân Hương, chợ Đà Lạt...\nNgày 3: Tự do tham quan, trả phòng, về TP.HCM.`
-            }
-            onChange={e => setForm({ ...form, itinerary: e.target.value })}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Lịch trình chi tiết 🇻🇳 <span className="text-red-500">*</span>
+            </label>
+            <textarea required rows="8"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-green-400 outline-none"
+              placeholder={`Ngày 1: Khởi hành từ TP.HCM...\nNgày 2: Tham quan...\nNgày 3: Trả phòng, về TP.HCM.`}
+              onChange={e => setForm({ ...form, itinerary: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Detailed Itinerary 🇬🇧
+            </label>
+            <textarea rows="8"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-green-400 outline-none"
+              placeholder={`Day 1: Depart from HCMC...\nDay 2: Visit...\nDay 3: Check out, return.`}
+              onChange={e => setForm({ ...form, itineraryEn: e.target.value })}
+            />
+          </div>
         </div>
 
         {/* Mô tả Trải nghiệm / Không gian */}
-        <div>
-          <label className="block font-medium text-gray-700 mb-2">
-            Mô tả Không gian & Trải nghiệm (Tùy chọn)
-          </label>
-          <textarea
-            rows="4"
-            className="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-green-400 outline-none"
-            placeholder="VD: Đến với Đà Lạt, bạn sẽ chìm đắm trong sương mù, tận hưởng không khí se lạnh bên ly cafe..."
-            onChange={e => setForm({ ...form, experienceDescription: e.target.value })}
-          />
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Mô tả Không gian & Trải nghiệm 🇻🇳
+              <span className="text-gray-400 font-normal text-sm ml-1">(Tùy chọn)</span>
+            </label>
+            <textarea rows="4"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-green-400 outline-none"
+              placeholder="VD: Đến với Đà Lạt, bạn sẽ chìm đắm trong sương mù..."
+              onChange={e => setForm({ ...form, experienceDescription: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="block font-medium text-gray-700 mb-2">
+              Space & Experience Description 🇬🇧
+              <span className="text-gray-400 font-normal text-sm ml-1">(Optional)</span>
+            </label>
+            <textarea rows="4"
+              className="w-full border rounded-lg px-4 py-2
+                focus:ring-2 focus:ring-green-400 outline-none"
+              placeholder="VD: Immerse yourself in Da Lat's misty atmosphere..."
+              onChange={e => setForm({ ...form, experienceDescriptionEn: e.target.value })}
+            />
+          </div>
         </div>
 
         
@@ -482,13 +568,17 @@ function CreateTourPage() {
                       type="text"
                       value={img.caption}
                       onChange={e => handleCaptionChange(idx, e.target.value)}
-                      placeholder={
-                        idx === 0
-                          ? 'VD: Toàn cảnh điểm đến...'
-                          : 'VD: Khung cảnh buổi sáng, chợ địa phương...'
-                      }
+                      placeholder={idx === 0 ? '🇻🇳 VD: Toàn cảnh điểm đến...' : '🇻🇳 VD: Khung cảnh buổi sáng...'}
                       className="w-full border rounded-lg px-3 py-2 text-sm
                         focus:ring-2 focus:ring-green-400 outline-none bg-white"
+                    />
+                    <input
+                      type="text"
+                      value={img.captionEn || ''}
+                      onChange={e => handleCaptionEnChange(idx, e.target.value)}
+                      placeholder={idx === 0 ? '🇬🇧 VD: Panoramic view of the destination...' : '🇬🇧 VD: Morning scenery, local market...'}
+                      className="w-full border rounded-lg px-3 py-2 text-sm
+                        focus:ring-2 focus:ring-blue-400 outline-none bg-white"
                     />
                   </div>
 

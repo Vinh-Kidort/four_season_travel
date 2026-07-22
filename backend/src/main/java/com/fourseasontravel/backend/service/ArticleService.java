@@ -67,6 +67,9 @@ public class ArticleService {
             existing.setTitle(articleDetails.getTitle());
             existing.setContent(articleDetails.getContent());
             existing.setLocationId(articleDetails.getLocationId());
+            existing.setTitleEn(articleDetails.getTitleEn());
+            existing.setContentEn(articleDetails.getContentEn());
+            existing.setSummaryEn(articleDetails.getSummaryEn());
             //existing.setAuthor(articleDetails.getAuthor());
 
             if(articleDetails.getAuthorName() != null) {

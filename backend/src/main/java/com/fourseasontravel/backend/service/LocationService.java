@@ -40,6 +40,8 @@ public class LocationService {
             existingLocation.setImages(locationDetails.getImages());
             existingLocation.setRegion(locationDetails.getRegion());
             existingLocation.setBestSeason(locationDetails.getBestSeason());
+            existingLocation.setBestSeasonEn(locationDetails.getBestSeasonEn());
+            existingLocation.setRegionEn(locationDetails.getRegionEn());
 
             return locationRepository.save(existingLocation);
         }

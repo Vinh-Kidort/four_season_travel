@@ -260,4 +260,53 @@ public class EmailService {
         </body></html>
     """.formatted(name != null ? name : "bạn", tempPassword);
     }
+
+
+    public void sendDepartureReminder(Booking booking) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setFrom(fromEmail);
+            helper.setTo(booking.getCustomerEmail());
+            helper.setSubject("📅 Nhắc nhở: Tour khởi hành sau 3 ngày!");
+            helper.setText(buildReminderHtml(booking), true);
+            mailSender.send(message);
+        } catch (Exception e) {
+            System.err.println("Lỗi gửi reminder: " + e.getMessage());
+        }
+    }
+
+    private String buildReminderHtml(Booking booking) {
+        return """
+        <!DOCTYPE html><html><body style="font-family:Arial,sans-serif">
+          <div style="max-width:480px;margin:0 auto;background:white;
+            border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+            <div style="background:linear-gradient(135deg,#0ea5e9,#0284c7);
+              padding:30px;text-align:center;color:white">
+              <h1 style="margin:0">🌏 Four Season Travel</h1>
+              <p>Nhắc nhở khởi hành</p>
+            </div>
+            <div style="padding:30px">
+              <p>Xin chào <strong>%s</strong>,</p>
+              <p>Tour của bạn sẽ khởi hành sau <strong>3 ngày</strong>!</p>
+              <div style="background:#f0f9ff;border-radius:8px;padding:16px;margin:16px 0">
+                <p>🧳 <strong>%s</strong></p>
+                <p>📅 Khởi hành: <strong>%s</strong></p>
+                <p>🎫 Mã đặt tour: <strong>%s</strong></p>
+                <p>💰 Còn lại cần thanh toán: <strong>%s đ</strong></p>
+              </div>
+              <p style="color:#f59e0b">
+                ⚠️ Vui lòng chuẩn bị đầy đủ giấy tờ và thanh toán phần còn lại.
+              </p>
+            </div>
+          </div>
+        </body></html>
+    """.formatted(
+                booking.getCustomerName(),
+                booking.getTourName(),
+                booking.getDepartureInfo() != null ? booking.getDepartureInfo() : "",
+                booking.getBookingCode(),
+                String.format("%,.0f", booking.getTotalPrice() - booking.getDepositAmount())
+        );
+    }
 }

@@ -143,6 +143,10 @@ public class TourService {
             existing.setImages(tourDetails.getImages());
             existing.setStatus(tourDetails.getStatus());
             existing.setIsApproved(tourDetails.getIsApproved());
+            existing.setExperienceDescription(tourDetails.getExperienceDescription());
+            existing.setExperienceDescriptionEn(tourDetails.getExperienceDescriptionEn());
+            existing.setRegion(tourDetails.getRegion());
+            existing.setRegionEn(tourDetails.getRegionEn());
             return tourRepository.save(existing);
 
         }

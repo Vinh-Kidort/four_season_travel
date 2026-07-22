@@ -57,8 +57,11 @@ function AdminDashboard() {
   const [previewItem, setPreviewItem] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [newLocation, setNewLocation] = useState({
-    
-    name: '', region: '', bestSeason: '', description: '', images: []
+    name: '', nameEn: '',
+    region: '', regionEn: '',
+    bestSeason: '', bestSeasonEn: '',
+    description: '', descriptionEn: '',
+    images: []
   });
   const [uploadingImage, setUploadingImage] = useState(false);
 
@@ -213,7 +216,13 @@ function AdminDashboard() {
     e.preventDefault();
     try {
       await axios.post('/locations', newLocation);
-      setNewLocation({ name: '', region: '', bestSeason: '', description: '', images: [] });
+      setNewLocation({
+        name: '', nameEn: '',
+        region: '', regionEn: '',
+        bestSeason: '', bestSeasonEn: '',
+        description: '', descriptionEn: '',
+        images: []
+      });
       fetchAllData();
       showDialog({
         type: 'alert', icon: '✅', variant: 'success',
@@ -422,25 +431,84 @@ function AdminDashboard() {
             <div className="lg:col-span-1 bg-gray-50 p-6 rounded-xl border">
               <h3 className="font-bold text-lg mb-4">Thêm Địa điểm mới</h3>
               <form onSubmit={handleCreateLocation} className="space-y-4">
-                <input type="text" placeholder="Tên địa điểm (VD: Đà Lạt)" required
-                  value={newLocation.name}
-                  onChange={e => setNewLocation({ ...newLocation, name: e.target.value })}
-                  className="w-full border p-2 rounded" />
-                <select required
-                  value={newLocation.region}
-                  onChange={e => setNewLocation({ ...newLocation, region: e.target.value })}
-                  className="w-full border p-2 rounded bg-white">
-                  <option value="">-- Chọn vùng miền --</option>
-                  <option value="Miền Bắc">📍 Miền Bắc</option>
-                  <option value="Miền Trung">📍 Miền Trung</option>
-                  <option value="Miền Nam">📍 Miền Nam</option>
-                </select>
-                <input type="text" placeholder="Mùa đẹp nhất (VD: Mùa Thu)" required
-                  value={newLocation.bestSeason}
-                  onChange={e => setNewLocation({ ...newLocation, bestSeason: e.target.value })}
-                  className="w-full border p-2 rounded" />
 
-                {/* ── Upload ảnh ── */}
+                {/* ── Tên địa điểm ── */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">
+                      Tên địa điểm 🇻🇳 *
+                    </label>
+                    <input type="text" placeholder="VD: Đà Lạt" required
+                      value={newLocation.name}
+                      onChange={e => setNewLocation({ ...newLocation, name: e.target.value })}
+                      className="w-full border p-2 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">
+                      Name 🇬🇧
+                    </label>
+                    <input type="text" placeholder="VD: Da Lat"
+                      value={newLocation.nameEn || ''}
+                      onChange={e => setNewLocation({ ...newLocation, nameEn: e.target.value })}
+                      className="w-full border p-2 rounded text-sm" />
+                  </div>
+                </div>
+
+                {/* ── Vùng miền ── */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">
+                      Vùng miền 🇻🇳 *
+                    </label>
+                    <select required
+                      value={newLocation.region}
+                      onChange={e => setNewLocation({ ...newLocation, region: e.target.value })}
+                      className="w-full border p-2 rounded bg-white text-sm">
+                      <option value="">-- Chọn vùng miền --</option>
+                      <option value="Miền Bắc">📍 Miền Bắc</option>
+                      <option value="Miền Trung">📍 Miền Trung</option>
+                      <option value="Miền Nam">📍 Miền Nam</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">
+                      Region 🇬🇧
+                    </label>
+                    <select
+                      value={newLocation.regionEn || ''}
+                      onChange={e => setNewLocation({ ...newLocation, regionEn: e.target.value })}
+                      className="w-full border p-2 rounded bg-white text-sm">
+                      <option value="">-- Select region --</option>
+                      <option value="North">📍 North</option>
+                      <option value="Central">📍 Central</option>
+                      <option value="South">📍 South</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* ── Mùa đẹp nhất ── */}
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">
+                      Mùa đẹp nhất 🇻🇳 *
+                    </label>
+                    <input type="text" placeholder="VD: Mùa Thu" required
+                      value={newLocation.bestSeason}
+                      onChange={e => setNewLocation({ ...newLocation, bestSeason: e.target.value })}
+                      className="w-full border p-2 rounded text-sm" />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-500 mb-1 block">
+                      Best Season 🇬🇧
+                    </label>
+                    <input type="text" placeholder="VD: Autumn"
+                      value={newLocation.bestSeasonEn || ''}
+                      onChange={e => setNewLocation({ ...newLocation, bestSeasonEn: e.target.value })}
+                      className="w-full border p-2 rounded text-sm" />
+                  </div>
+                </div>
+
+                {/* ── Upload ảnh — giữ nguyên ── */}
                 <div className="border border-dashed border-gray-400 p-4 rounded bg-white">
                   <label className="block text-sm font-bold text-gray-700 mb-1">
                     Tải ảnh lên
@@ -453,11 +521,8 @@ function AdminDashboard() {
                   {uploadingImage && (
                     <p className="text-blue-500 text-sm mt-2">⏳ Đang tải ảnh...</p>
                   )}
-
-                  {/* Preview ảnh đã upload */}
                   {newLocation.images.length > 0 && (
                     <div className="mt-3 space-y-2">
-                      {/* Ảnh bìa */}
                       <p className="text-xs font-bold text-gray-500 uppercase">Ảnh bìa</p>
                       <div className="relative group inline-block">
                         <img src={newLocation.images[0]} alt="cover"
@@ -473,8 +538,6 @@ function AdminDashboard() {
                             w-5 h-5 text-xs flex items-center justify-center
                             opacity-0 group-hover:opacity-100 transition">×</button>
                       </div>
-
-                      {/* Ảnh gallery */}
                       {newLocation.images.length > 1 && (
                         <>
                           <p className="text-xs font-bold text-gray-500 uppercase mt-2">Gallery</p>
@@ -500,10 +563,27 @@ function AdminDashboard() {
                   )}
                 </div>
 
-                <textarea placeholder="Mô tả..." rows="3" required
-                  value={newLocation.description}
-                  onChange={e => setNewLocation({ ...newLocation, description: e.target.value })}
-                  className="w-full border p-2 rounded" />
+                {/* ── Mô tả ── */}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">
+                    Mô tả 🇻🇳 *
+                  </label>
+                  <textarea placeholder="Mô tả địa điểm..." rows="3" required
+                    value={newLocation.description}
+                    onChange={e => setNewLocation({ ...newLocation, description: e.target.value })}
+                    className="w-full border p-2 rounded text-sm" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-500 mb-1 block">
+                    Description 🇬🇧
+                  </label>
+                  <textarea placeholder="Describe the location in English..."
+                    rows="3"
+                    value={newLocation.descriptionEn || ''}
+                    onChange={e => setNewLocation({ ...newLocation, descriptionEn: e.target.value })}
+                    className="w-full border p-2 rounded text-sm" />
+                </div>
+
                 <button type="submit"
                   className="w-full bg-purple-600 text-white font-bold py-2 rounded hover:bg-purple-700">
                   Tạo Địa điểm

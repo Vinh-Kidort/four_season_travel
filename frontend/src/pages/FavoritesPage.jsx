@@ -1,4 +1,3 @@
-// src/pages/FavoritesPage.jsx
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -9,40 +8,34 @@ export default function FavoritesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [favorites, setFavorites] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('ALL'); // ALL | TOUR | LOCATION | ARTICLE
+  const [loading,   setLoading]   = useState(true);
+  const [activeTab, setActiveTab] = useState('ALL');
 
   useEffect(() => {
     getMyFavorites()
       .then(res => setFavorites(res.data))
-      .catch((err) => {
-        console.error('Lỗi tải favorites:', err);
-        if (err.response?.status === 401) {
-          navigate('/login');
-        }
+      .catch(err => {
+        if (err.response?.status === 401) navigate('/login');
       })
       .finally(() => setLoading(false));
   }, []);
 
   const tabs = [
-    { key: 'ALL', label: 'Tất cả' },
-    { key: 'TOUR', label: '🗺️ Tours' },
-    { key: 'LOCATION', label: '📍 Địa điểm' },
-    { key: 'ARTICLE', label: '📖 Bài viết' },
+    { key: 'ALL',      label: t('favorites.tabAll')      },
+    { key: 'TOUR',     label: t('favorites.tabTour')     },
+    { key: 'LOCATION', label: t('favorites.tabLocation') },
+    { key: 'ARTICLE',  label: t('favorites.tabArticle')  },
   ];
 
   const filtered = activeTab === 'ALL'
     ? favorites
     : favorites.filter(f => f.itemType === activeTab);
 
-  const getLink = (fav) => {
-    switch (fav.itemType) {
-      case 'TOUR': return `/tours/${fav.data.id}`;
-      case 'LOCATION': return `/locations/${fav.data.id}`;
-      case 'ARTICLE': return `/articles/${fav.data.id}`;
-      default: return '/';
-    }
-  };
+  const getLink = (fav) => ({
+    TOUR:     `/tours/${fav.data.id}`,
+    LOCATION: `/locations/${fav.data.id}`,
+    ARTICLE:  `/articles/${fav.data.id}`,
+  }[fav.itemType] || '/');
 
   const getImage = (fav) => {
     if (!fav.data) return null;
@@ -51,39 +44,42 @@ export default function FavoritesPage() {
       return typeof img === 'string' ? img : img?.url;
     }
     if (fav.itemType === 'LOCATION') return fav.data.images?.[0];
-    if (fav.itemType === 'ARTICLE') return fav.data.imageUrl;
+    if (fav.itemType === 'ARTICLE')  return fav.data.imageUrl;
     return null;
   };
 
   const getBadgeColor = (type) => ({
-    TOUR: 'bg-blue-100 text-blue-700',
+    TOUR:     'bg-blue-100 text-blue-700',
     LOCATION: 'bg-green-100 text-green-700',
-    ARTICLE: 'bg-yellow-100 text-yellow-700',
+    ARTICLE:  'bg-yellow-100 text-yellow-700',
   }[type]);
 
   const getBadgeLabel = (type) => ({
-    TOUR: 'Tour',
-    LOCATION: 'Địa điểm',
-    ARTICLE: 'Bài viết',
+    TOUR:     t('favorites.badgeTour'),
+    LOCATION: t('favorites.badgeLocation'),
+    ARTICLE:  t('favorites.badgeArticle'),
   }[type]);
 
   return (
-    <div className="min-h-screen bg-gray-50 py-10 px-4">
+    <div className="min-h-screen bg-gray-50 py-6 sm:py-10 px-3 sm:px-4">
       <div className="max-w-5xl mx-auto">
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-800">❤️ Yêu thích của tôi</h1>
-          <p className="text-gray-500 mt-1">Các tour, địa điểm và bài viết bạn đã lưu lại</p>
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-800">
+            ❤️ {t('favorites.title')}
+          </h1>
+          <p className="text-gray-500 text-sm mt-1">{t('favorites.subtitle')}</p>
         </div>
 
-        {/* Tabs - ĐÃ SỬA LỖI GIẬT LAYOUT (Luôn có border-b-4, chỉ đổi màu) */}
-        <div className="flex border-b border-gray-200 mb-6 space-x-6">
+        {/* Tabs — scroll ngang trên mobile */}
+        <div className="flex border-b border-gray-200 mb-5 sm:mb-6 overflow-x-auto no-scrollbar">
           {tabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`pb-3 font-bold text-lg transition-all border-b-4 ${
+              className={`pb-3 font-bold text-sm sm:text-base transition-all
+                border-b-4 whitespace-nowrap px-3 sm:px-4 flex-shrink-0 ${
                 activeTab === tab.key
                   ? 'border-red-500 text-red-600'
                   : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -91,7 +87,7 @@ export default function FavoritesPage() {
             >
               {tab.label}
               {tab.key !== 'ALL' && (
-                <span className="ml-1 text-sm font-normal opacity-70">
+                <span className="ml-1 text-xs font-normal opacity-70">
                   ({favorites.filter(f => f.itemType === tab.key).length})
                 </span>
               )}
@@ -99,112 +95,120 @@ export default function FavoritesPage() {
           ))}
         </div>
 
-        {/* Content */}
+        {/* Loading skeleton */}
         {loading ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
             {[...Array(6)].map((_, i) => (
               <div key={i} className="bg-white rounded-2xl overflow-hidden shadow animate-pulse">
-                <div className="h-48 bg-gray-200" />
-                <div className="p-4 space-y-2">
+                <div className="h-36 sm:h-48 bg-gray-200" />
+                <div className="p-3 sm:p-4 space-y-2">
                   <div className="h-4 bg-gray-200 rounded w-3/4" />
                   <div className="h-3 bg-gray-100 rounded w-1/2" />
                 </div>
               </div>
             ))}
           </div>
+
+        /* Empty state */
         ) : filtered.length === 0 ? (
-          <div className="text-center py-20 text-gray-400">
-            <div className="text-6xl mb-4">🤍</div>
-            <p className="text-lg">Chưa có mục yêu thích nào</p>
-            <p className="text-sm mt-1">Hãy khám phá và lưu những nơi bạn thích!</p>
+          <div className="text-center py-16 sm:py-20 text-gray-400">
+            <div className="text-5xl sm:text-6xl mb-4">🤍</div>
+            <p className="text-base sm:text-lg font-medium">{t('favorites.empty')}</p>
+            <p className="text-xs sm:text-sm mt-1">{t('favorites.emptyDesc')}</p>
             <button
               onClick={() => navigate('/')}
-              className="mt-6 px-6 py-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition"
-            >
-              Khám phá ngay
+              className="mt-6 px-6 py-2.5 bg-red-500 text-white rounded-full
+                hover:bg-red-600 transition text-sm font-medium">
+              {t('favorites.explore')}
             </button>
           </div>
+
+        /* Grid */
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
             {filtered.map(fav => {
-              const isActive = fav.isActive !== false; // mặc định true nếu không có field
+              const isActive = fav.isActive !== false;
+              const imgSrc   = getImage(fav);
+              const title    = fav.data?.name || fav.data?.title || '';
 
               return (
                 <div
                   key={fav.favoriteId}
                   onClick={() => isActive && navigate(getLink(fav))}
                   className={`bg-white rounded-2xl overflow-hidden shadow-sm
-                    transition-all duration-200 group relative
-                    ${isActive
+                    transition-all duration-200 group relative ${
+                    isActive
                       ? 'hover:shadow-md cursor-pointer'
-                      : 'opacity-60 cursor-not-allowed'  // ← mờ khi ngưng
-                    }`}
+                      : 'opacity-60 cursor-not-allowed'
+                  }`}
                 >
                   {/* Image */}
-                  <div className="relative h-48 overflow-hidden">
-                    {getImage(fav) ? (
-                      <img
-                        src={getImage(fav)}
-                        alt={fav.data.name || fav.data.title}
-                        className={`w-full h-full object-cover transition-transform duration-300
-                          ${isActive ? 'group-hover:scale-105' : 'grayscale'}`}  // ← xám khi ngưng
+                  <div className="relative h-36 sm:h-48 overflow-hidden">
+                    {imgSrc ? (
+                      <img src={imgSrc} alt={title}
+                        className={`w-full h-full object-cover transition-transform
+                          duration-300 ${isActive ? 'group-hover:scale-105' : 'grayscale'}`}
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-gray-100
-                        to-gray-200 flex items-center justify-center text-4xl">🏔️</div>
+                        to-gray-200 flex items-center justify-center text-3xl sm:text-4xl">
+                        🏔️
+                      </div>
                     )}
 
-                    {/* Badge ngưng hoạt động */}
+                    {/* Overlay ngưng hoạt động */}
                     {!isActive && (
                       <div className="absolute inset-0 bg-black bg-opacity-40
-                        flex items-center justify-center">
-                        <span className="bg-red-500 text-white text-sm font-bold
-                          px-4 py-2 rounded-full">
-                          🚫 Đã ngưng hoạt động
+                        flex items-center justify-center p-2">
+                        <span className="bg-red-500 text-white text-xs font-bold
+                          px-2.5 sm:px-4 py-1 sm:py-2 rounded-full text-center leading-tight">
+                          🚫 {t('favorites.inactive')}
                         </span>
                       </div>
                     )}
 
-                    {/* Badge type — chỉ hiện khi active */}
+                    {/* Badge type */}
                     {isActive && (
                       <span className={`absolute top-2 left-2 text-xs font-semibold
-                        px-2 py-1 rounded-full ${getBadgeColor(fav.itemType)}`}>
+                        px-2 py-0.5 rounded-full ${getBadgeColor(fav.itemType)}`}>
                         {getBadgeLabel(fav.itemType)}
                       </span>
                     )}
 
-                    {/* Nút bỏ yêu thích — luôn hiện */}
-                    <div className="absolute top-2 right-2" onClick={e => e.stopPropagation()}>
+                    {/* Nút bỏ yêu thích */}
+                    <div className="absolute top-1.5 right-1.5 sm:top-2 sm:right-2"
+                      onClick={e => e.stopPropagation()}>
                       <FavoriteButton
                         itemId={fav.data.id}
                         itemType={fav.itemType}
-                        onUnfavorite={() => {
-                          // Khi bỏ tim → xóa khỏi danh sách local ngay
+                        onUnfavorite={() =>
                           setFavorites(prev =>
                             prev.filter(f => f.favoriteId !== fav.favoriteId)
-                          );
-                        }}
+                          )
+                        }
                       />
                     </div>
                   </div>
 
                   {/* Info */}
-                  <div className="p-4">
-                    <h3 className={`font-semibold line-clamp-2 transition-colors
-                      ${isActive
+                  <div className="p-3 sm:p-4">
+                    <h3 className={`font-semibold text-sm sm:text-base line-clamp-2
+                      transition-colors ${
+                      isActive
                         ? 'text-gray-800 group-hover:text-red-500'
-                        : 'text-gray-400 line-through'  // ← gạch ngang khi ngưng
-                      }`}>
-                      {fav.data.name || fav.data.title}
+                        : 'text-gray-400 line-through'
+                    }`}>
+                      {title}
                     </h3>
+
                     {!isActive ? (
                       <p className="text-red-400 text-xs mt-1 font-medium">
-                        Bỏ tim để xóa khỏi danh sách
+                        {t('favorites.removeHint')}
                       </p>
                     ) : (
                       <>
                         {fav.itemType === 'TOUR' && fav.data.price && (
-                          <p className="text-red-500 font-bold mt-1 text-sm">
+                          <p className="text-red-500 font-bold mt-1 text-xs sm:text-sm">
                             {Number(fav.data.price).toLocaleString('vi-VN')}₫
                           </p>
                         )}

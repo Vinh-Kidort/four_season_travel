@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Meilisearch } from 'meilisearch';
 import axios from '../api/axios'; 
+import { tokenManager } from '../api/tokenManager';
 
 const USE_ATLAS = import.meta.env.VITE_USE_ATLAS_SEARCH === 'true';
 
@@ -10,7 +11,6 @@ const meiliHost = process.env.REACT_APP_MEILISEARCH_HOST;
 const meiliKey = process.env.REACT_APP_MEILISEARCH_API_KEY;
 
 let meiliClient = null;
-// CHỈ khởi tạo Meilisearch nếu biến meiliHost có tồn tại và hợp lệ (bắt đầu bằng http)
 if (meiliHost && meiliHost.startsWith('http')) {
   meiliClient = new Meilisearch({
     host: meiliHost,
@@ -59,11 +59,12 @@ const getVietnameseName = (aiKey) => {
   for (const [key, value] of Object.entries(AI_LOCATION_MAP)) {
     if (key.toLowerCase() === cleanKey) return value;
   }
-  return aiKey; // Nếu không tìm thấy, trả về key gốc
+  return aiKey;
 };
 
 // ── SearchBar ──────────────────────────────────────────────────
 export function SearchBar({ compact = false }) {
+  const { t } = useTranslation(); 
   const navigate     = useNavigate();
   const fileRef      = useRef(null);
   const dropdownRef  = useRef(null);
@@ -86,7 +87,6 @@ export function SearchBar({ compact = false }) {
 
   const totalResults = results.tours.length + results.articles.length + results.locations.length;
 
-  // ── Debounce search realtime ──────────────────────────────
   useEffect(() => {
     if (!keyword.trim()) {
       setResults({ tours: [], articles: [], locations: [] });
@@ -95,7 +95,6 @@ export function SearchBar({ compact = false }) {
     const timer = setTimeout(async () => {
       setIsSearching(true);
        try {
-        // KIỂM TRA ĐIỀU KIỆN: Nếu có Meilisearch (Đang chạy Local)
         if (meiliClient) {
           const [tourRes, articleRes, locationRes] = await Promise.all([
             meiliClient.index('tours').search(keyword, { limit: 3 }),
@@ -107,12 +106,9 @@ export function SearchBar({ compact = false }) {
             articles:  articleRes.hits,
             locations: locationRes.hits,
           });
-        } 
-        // NẾU KHÔNG CÓ MEILISEARCH (Đang chạy Netlify, dùng MongoDB Atlas Search)
-        else {
+        } else {
           const response = await axios.get(`/search/quick?q=${encodeURIComponent(keyword)}`);
           setResults({
-            // Xử lý dữ liệu trả về từ Spring Boot
             tours:     response.data.tours || [],
             articles:  response.data.articles || [],
             locations: response.data.locations || [],
@@ -128,7 +124,6 @@ export function SearchBar({ compact = false }) {
     return () => clearTimeout(timer);
   }, [keyword]);
 
-  // ── Đóng dropdown khi click ra ngoài ─────────────────────
   useEffect(() => {
     const handler = (e) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
@@ -140,7 +135,6 @@ export function SearchBar({ compact = false }) {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  // ── Lưu lịch sử tìm kiếm ─────────────────────────────────
   const saveHistory = (kw) => {
     const newHistory = [kw, ...history.filter(h => h !== kw)].slice(0, 5);
     setHistory(newHistory);
@@ -152,7 +146,6 @@ export function SearchBar({ compact = false }) {
     localStorage.removeItem(SEARCH_HISTORY_KEY);
   };
 
-  // ── Submit tìm kiếm ───────────────────────────────────────
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!keyword.trim()) return;
@@ -186,6 +179,19 @@ export function SearchBar({ compact = false }) {
     setTimeout(() => setAiToast(null), 5000);
   };
 
+  const handleCameraClick = () => {
+    const token = tokenManager.getToken();
+    if (!token) {
+      showToast(
+        'warning', 
+        'Yêu cầu đăng nhập 🔑', 
+        'Vui lòng đăng nhập tài khoản để sử dụng chức năng tìm kiếm hình ảnh bằng AI!'
+      );
+      return;
+    }
+    fileRef.current?.click(); // Nếu có token thì mới cho kích hoạt click chọn file
+  };
+
   const handleAiUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -203,31 +209,16 @@ export function SearchBar({ compact = false }) {
 
       if (data.success) {
         const { location, confidence } = data;
-        
         if (confidence >= 60.0) {
-          // Lấy tên tiếng Việt bằng hàm thông minh
           const realKeyword = getVietnameseName(location);
-          
           saveHistory(realKeyword);
           setShowDropdown(false);
           setIsFocused(false);
           setKeyword(realKeyword); 
-          
-          // GỌI BOX THÔNG BÁO THÀNH CÔNG
-          showToast(
-            'success', 
-            'Nhận diện thành công!', 
-            `AI phân tích ảnh này là: ${realKeyword} (${confidence.toFixed(1)}%)`
-          );
-          
+          showToast('success', 'Nhận diện thành công!', `AI phân tích ảnh này là: ${realKeyword} (${confidence.toFixed(1)}%)`);
           navigate(`/search?q=${encodeURIComponent(realKeyword)}`);
         } else {
-          // GỌI BOX THÔNG BÁO THẤT BẠI
-          showToast(
-            'warning',
-            'Hình ảnh chưa rõ ràng 🤔',
-            'Hệ thống không chắc chắn đây là địa điểm nào. Bạn thử góc chụp khác nhé!'
-          );
+          showToast('warning', 'Hình ảnh chưa rõ ràng 🤔', 'Hệ thống không chắc chắn đây là địa điểm nào. Bạn thử góc chụp khác nhé!');
         }
       } else {
         showToast('error', 'Lỗi Server AI', data.error);
@@ -247,20 +238,12 @@ export function SearchBar({ compact = false }) {
   return (
     <div className="relative w-full" ref={dropdownRef}>
       
-      {/* ── MỚI THÊM: GIAO DIỆN BOX THÔNG BÁO (TOAST) ── */}
       {aiToast && (
         <div className={`fixed top-24 right-4 z-[9999] p-4 rounded-xl shadow-2xl border-l-4 flex items-start gap-3 w-80 bg-white transition-all duration-500 animate-fade-in-down ${
           aiToast.type === 'success' ? 'border-green-500' :
           aiToast.type === 'warning' ? 'border-orange-500' : 'border-red-500'
         }`}>
-          {/* Icon theo trạng thái */}
-          <div className="flex-shrink-0 mt-0.5">
-            {aiToast.type === 'success' }
-            {aiToast.type === 'warning' }
-            {aiToast.type === 'error' }
-          </div>
-          
-          {/* Nội dung */}
+          <div className="flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <h4 className={`text-sm font-bold ${
               aiToast.type === 'success' ? 'text-green-700' :
@@ -272,18 +255,13 @@ export function SearchBar({ compact = false }) {
               {aiToast.message}
             </p>
           </div>
-
-          {/* Nút đóng */}
-          <button onClick={() => setAiToast(null)} className="text-gray-400 hover:text-gray-700 flex-shrink-0">
-            ✕
-          </button>
+          <button onClick={() => setAiToast(null)} className="text-gray-400 hover:text-gray-700 flex-shrink-0">✕</button>
         </div>
       )}
 
-      {/* ── Input form ── */}
       <form onSubmit={handleSubmit}
         className={`flex items-center gap-1.5 bg-white border rounded-xl
-          shadow-sm px-3 py-1.5 w-full transition-all ${
+          shadow-sm px-2 sm:px-3 py-1.5 w-full max-w-full overflow-hidden transition-all ${
           isFocused ? 'border-blue-400 ring-2 ring-blue-100' : 'border-gray-200 hover:border-blue-300'
         }`}>
         {isSearching ? (
@@ -301,7 +279,7 @@ export function SearchBar({ compact = false }) {
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           onFocus={() => { setIsFocused(true); setShowDropdown(true); }}
-          placeholder={compact ? "Tìm kiếm..." : "Tìm theo điểm đến, hoạt động..."}
+          placeholder={compact ? t('search.placeholderCompact') : t('search.placeholderFull')}
           className="flex-1 outline-none text-gray-700 placeholder-gray-400 text-sm bg-transparent min-w-0"
         />
 
@@ -322,10 +300,9 @@ export function SearchBar({ compact = false }) {
 
         <div className="h-4 w-px bg-gray-200 flex-shrink-0" />
 
-        {/* Nút upload AI */}
         <button 
           type="button" 
-          onClick={() => fileRef.current?.click()}
+          onClick={handleCameraClick}
           disabled={isAiLoading}
           title="Tìm bằng hình ảnh (AI)"
           className={`text-xs flex-shrink-0 transition hidden sm:block ${
@@ -342,11 +319,10 @@ export function SearchBar({ compact = false }) {
 
         <button type="submit"
           className="bg-blue-600 text-white px-3 py-1 rounded-lg font-bold hover:bg-blue-700 transition text-xs flex-shrink-0">
-          Tìm
+          {t('search.searchBtn')}
         </button>
       </form>
 
-      {/* ── Dropdown (Giữ nguyên như code cũ của bạn) ── */}
       {showDropdown && (showDefault || showResults) && (
         <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-2xl
           shadow-2xl border border-gray-100 z-[200] overflow-hidden">
@@ -356,8 +332,8 @@ export function SearchBar({ compact = false }) {
               {history.length > 0 && (
                 <div>
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-sm font-bold text-gray-700">Lịch sử tìm kiếm</span>
-                    <button onClick={clearHistory} className="text-gray-400 hover:text-red-400 transition text-xs">🗑️ Xóa</button>
+                    <span className="text-sm font-bold text-gray-700">{t('search.history')}</span>
+                    <button onClick={clearHistory} className="text-gray-400 hover:text-red-400 transition text-xs">🗑️ {t('search.clear')}</button>
                   </div>
                   <div className="flex flex-wrap gap-2">
                     {history.map((h, i) => (
@@ -371,7 +347,7 @@ export function SearchBar({ compact = false }) {
               )}
 
               <div>
-                <p className="text-sm font-bold text-gray-700 mb-2">Mọi người đang tìm kiếm</p>
+                <p className="text-sm font-bold text-gray-700 mb-2">{t('search.trending')}</p>
                 <div className="flex flex-wrap gap-2">
                   {POPULAR_KEYWORDS.map((kw, i) => (
                     <button key={i} onClick={() => handleSelectKeyword(kw)}
@@ -387,17 +363,16 @@ export function SearchBar({ compact = false }) {
           {showResults && (
             <div className="max-h-[400px] overflow-y-auto">
               {isSearching ? (
-                <div className="px-4 py-6 text-sm text-gray-400 text-center">🔍 Đang tìm...</div>
+                <div className="px-4 py-6 text-sm text-gray-400 text-center">{t('search.searching')}</div>
               ) : totalResults === 0 ? (
                 <div className="px-4 py-6 text-center">
-                  <p className="text-gray-400 text-sm">Không tìm thấy "<strong>{keyword}</strong>"</p>
+                  <p className="text-gray-400 text-sm">{t('search.noResults')} "<strong>{keyword}</strong>"</p>
                 </div>
               ) : (
                 <>
-                  {/* ... Code map tours, locations, articles giữ nguyên ... */}
                   {results.tours.length > 0 && (
                     <div>
-                      <div className="px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase">🧳 Tour</div>
+                      <div className="px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase">{t('search.tour')}</div>
                       {results.tours.map(item => (
                         <button key={item.id} type="button" onClick={() => handleSelectItem('tour', item.id)}
                           className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition border-b border-gray-50 flex items-center gap-3">
@@ -409,7 +384,7 @@ export function SearchBar({ compact = false }) {
                   )}
                   {results.locations.length > 0 && (
                     <div>
-                      <div className="px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase">📍 Địa điểm</div>
+                      <div className="px-4 py-2 bg-gray-50 text-xs font-bold text-gray-500 uppercase">{t('search.location')}</div>
                       {results.locations.map(item => (
                         <button key={item.id} type="button" onClick={() => handleSelectItem('location', item.id)}
                           className="w-full text-left px-4 py-2.5 hover:bg-blue-50 transition border-b border-gray-50 flex items-center gap-3">
@@ -421,7 +396,7 @@ export function SearchBar({ compact = false }) {
                   )}
                   <button type="button" onClick={() => handleSelectKeyword(keyword)}
                     className="w-full py-3 text-center text-blue-600 font-bold text-sm hover:bg-blue-50 transition border-t border-gray-100">
-                    Xem tất cả kết quả cho "{keyword}" →
+                    {t('search.viewAll')} "{keyword}" →
                   </button>
                 </>
               )}
@@ -434,226 +409,369 @@ export function SearchBar({ compact = false }) {
 }
 
 // ── Navbar ─────────────────────────────────────────────────────
-function Navbar() {
+export function Navbar() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const [isLangOpen, setIsLangOpen] = useState(false);
+  
+  // TÁCH BIỆT TRẠNG THÁI MỞ MENU NGÔN NGỮ CỦA DESKTOP VÀ MOBILE
+  const [isDesktopLangOpen, setIsDesktopLangOpen] = useState(false);
+  const [isMobileLangOpen, setIsMobileLangOpen] = useState(false);
+
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
-  
   const [showStickySearch, setShowStickySearch] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isMobileSearchOpen, setIsMobileSearchOpen] = useState(false);
   
-  const langRef = useRef(null);
+  // TÁCH BIỆT REF ĐỂ TRÁNH TRÙNG LẶP CLICK-OUTSIDE
+  const desktopLangRef = useRef(null);
+  const mobileLangRef = useRef(null);
   const userRef = useRef(null);
 
   const isHomePage = location.pathname === '/';
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/register';
 
   useEffect(() => {
-    const handleToggleSearch = (e) => {
-      setShowStickySearch(e.detail);
-    };
-
+    const handleToggleSearch = (e) => setShowStickySearch(e.detail);
     window.addEventListener('toggleNavbarSearch', handleToggleSearch);
-    
-    if (!isHomePage) {
-      setShowStickySearch(false);
-    }
-
-    return () => {
-      window.removeEventListener('toggleNavbarSearch', handleToggleSearch);
-    };
+    if (!isHomePage) setShowStickySearch(false);
+    return () => window.removeEventListener('toggleNavbarSearch', handleToggleSearch);
   }, [isHomePage]);
 
+  // XỬ LÝ CLICK RA NGOÀI ĐỂ TỰ ĐỘNG ĐÓNG DROPDOWN (Đã sửa lỗi xung đột)
   useEffect(() => {
     const handler = (e) => {
-      if (langRef.current && !langRef.current.contains(e.target))
-        setIsLangOpen(false);
-      if (userRef.current && !userRef.current.contains(e.target))
-        setIsUserMenuOpen(false);
+      if (desktopLangRef.current && !desktopLangRef.current.contains(e.target)) setIsDesktopLangOpen(false);
+      if (mobileLangRef.current && !mobileLangRef.current.contains(e.target)) setIsMobileLangOpen(false);
+      if (userRef.current && !userRef.current.contains(e.target)) setIsUserMenuOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
-  const changeLanguage = (lng) => { i18n.changeLanguage(lng); setIsLangOpen(false); };
+   useEffect(() => {
+    if (isMobileMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => { document.body.style.overflow = ''; };
+  }, [isMobileMenuOpen]);
 
-  const handleLogout = () => {
-    ['token','userEmail','userRole','userName'].forEach(k => localStorage.removeItem(k));
-    setAuthInfo({ token: null, userName: '', userEmail: '', userRole: '' });
-    navigate('/login');
+  useEffect(() => {
+    setIsUserMenuOpen(false);
+    setIsDesktopLangOpen(false);
+    setIsMobileLangOpen(false);
+    setIsMobileMenuOpen(false);
+    setIsMobileSearchOpen(false);
+  }, [location.pathname]);
+
+  const changeLanguage = (lng) => { 
+    i18n.changeLanguage(lng); 
+    setIsDesktopLangOpen(false); 
+    setIsMobileLangOpen(false); 
   };
+
+  const [authInfo, setAuthInfo] = useState(() => ({
+    token:     tokenManager.getToken(),
+    userName:  localStorage.getItem('userName')  || '',
+    userEmail: localStorage.getItem('userEmail') || '',
+    userRole:  localStorage.getItem('userRole')  || '',
+  }));
 
   useEffect(() => {
     setAuthInfo({
-      token:     localStorage.getItem('token'),
+      token:     tokenManager.getToken(),
       userName:  localStorage.getItem('userName')  || '',
       userEmail: localStorage.getItem('userEmail') || '',
       userRole:  localStorage.getItem('userRole')  || '',
     });
-  }, [location.pathname]); // sync lại mỗi khi đổi trang
-
-  useEffect(() => {
-    setIsUserMenuOpen(false);
-    setIsLangOpen(false);
   }, [location.pathname]);
 
-  const [authInfo, setAuthInfo] = useState(() => {
-  const token     = localStorage.getItem('token');
-  const userName  = localStorage.getItem('userName')  || '';
-  const userEmail = localStorage.getItem('userEmail') || '';
-  const userRole  = localStorage.getItem('userRole')  || '';
-  return { token, userName, userEmail, userRole };
-  });
+  const handleLogout = () => {
+    
+    tokenManager.clearToken();
+    ['userEmail','userRole','userName'].forEach(k => localStorage.removeItem(k));
+    setAuthInfo({ token: null, userName: '', userEmail: '', userRole: '' });
+    setIsUserMenuOpen(false);
+    setIsMobileMenuOpen(false);
+    navigate('/login');
+  };
 
   const { token, userName, userEmail, userRole } = authInfo;
   const avatarChar  = (userName || userEmail || '?').charAt(0).toUpperCase();
   const displayName = userName || (userEmail ? userEmail.split('@')[0] : '');
 
-  const shouldShowSearch = !isHomePage || showStickySearch;
+  const shouldShowSearch = (!isHomePage || showStickySearch) && !isAuthPage;
+
+  const UserMenuDropdown = () => (
+    <div className="absolute right-0 mt-3 w-64 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-fade-in-down">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-400 p-4 text-white">
+        <p className="font-bold leading-tight truncate">{userName || t('userMenu.defaultUser')}</p>
+        <p className="text-xs text-blue-100 truncate mt-0.5">{userEmail}</p>
+        <span className="text-[10px] font-bold bg-white text-blue-600 inline-block px-2 py-0.5 rounded mt-2 uppercase">
+          {userRole === 'ADMIN' ? t('userMenu.roleAdmin') : userRole === 'AUTHOR' ? t('userMenu.roleAuthor') : t('userMenu.roleMember')}
+        </span>
+      </div>
+      <div className="p-2 space-y-0.5">
+        {userRole === 'ADMIN' && (<>
+          <Link to="/admin" className="flex items-center gap-2 px-4 py-2.5 text-purple-700 hover:bg-purple-50 rounded-lg font-bold text-sm transition">⚙️ {t('userMenu.adminSystem')}</Link>
+          <Link to="/admin/revenue" className="flex items-center gap-2 px-4 py-2.5 text-yellow-700 hover:bg-yellow-50 rounded-lg font-bold text-sm transition">💰 {t('userMenu.adminRevenue')}</Link>
+        </>)}
+        {userRole === 'AUTHOR' && (<>
+          <Link to="/author" className="flex items-center gap-2 px-4 py-2.5 text-green-700 hover:bg-green-50 rounded-lg font-bold text-sm transition">✍️ {t('userMenu.authorContent')}</Link>
+          <Link to="/author/bookings" className="flex items-center gap-2 px-4 py-2.5 text-blue-700 hover:bg-blue-50 rounded-lg font-bold text-sm transition">📋 {t('userMenu.authorBookings')}</Link>
+        </>)}
+        <Link to="/favorites" className="flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-lg text-sm font-semibold transition">❤️ {t('userMenu.favorites')}</Link>
+        <Link to="/my-bookings" className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-blue-50 rounded-lg text-sm transition">🎫 {t('userMenu.myBookings')}</Link>
+        <Link to="/settings" className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-blue-50 rounded-lg text-sm transition">👤 {t('userMenu.settings')}</Link>
+        <hr className="my-1 border-gray-100" />
+        <button onClick={handleLogout} className="w-full flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lg text-sm transition font-bold">🚪 {t('userMenu.logout')}</button>
+      </div>
+    </div>
+  );
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50 transition-all duration-300">
-      <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center gap-6">
-
-        {/* Logo */}
-        <Link to="/" className="flex-shrink-0">
-          <img
-            src="/logo.png"
-            alt="Four Season Travel"
-            className="h-12 w-auto object-contain"
-          />
+    <>
+      <nav className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-40 transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-4 py-2.5">
           
-        </Link>
+          {/* GIAO DIỆN DESKTOP */}
+          <div className="hidden md:flex items-center gap-6">
+            <Link to="/" className="flex-shrink-0">
+              <img src="/logo.png" alt="Four Season Travel" className="h-12 w-auto object-contain" />
+            </Link>
 
-        {/* SearchBar */}
-        <div className="flex-1 max-w-lg transition-all duration-300">
-          {shouldShowSearch ? (
-            <div className="animate-fade-in">
-              <SearchBar compact />
+            <div className="flex-1 max-w-lg">
+              {shouldShowSearch ? (
+                <div className="animate-fade-in"><SearchBar compact /></div>
+              ) : <div className="w-full h-8"></div>}
             </div>
-          ) : (
-            <div className="w-full h-8"></div> 
-          )}
-        </div>
 
-        <div className="flex-1" />
+            <div className="flex-1" />
 
-        {/* Menu links - ĐÃ SỬA CẨM NANG HẾT VIỀN */}
-        <div className="hidden md:flex items-center gap-5 flex-shrink-0 border-r border-gray-200 pr-5">
-          <Link to="/locations" className="text-gray-600 hover:text-blue-600 font-medium text-base whitespace-nowrap transition">
-            {t('menu.locations')}
-          </Link>
-          <Link to="/tours" className="text-gray-600 hover:text-blue-600 font-medium text-base whitespace-nowrap transition">
-            {t('menu.tours')}
-          </Link>
-          <Link to="/articles" className="text-gray-600 hover:text-blue-600 font-medium text-base whitespace-nowrap transition">
-            {t('menu.articles')}
-          </Link>
-        </div>
+            {!isAuthPage && (
+              <div className="flex items-center gap-5 flex-shrink-0 border-r border-gray-200 pr-5">
+                <Link to="/locations" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition">{t('menu.locations')}</Link>
+                <Link to="/tours" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition">{t('menu.tours')}</Link>
+                <Link to="/articles" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition">{t('menu.articles')}</Link>
+              </div>
+            )}
 
-        {/* Actions */}
-        <div className="flex items-center gap-3 flex-shrink-0">
-          {/* Ngôn ngữ */}
-          <div className="relative" ref={langRef}>
-            <button onClick={() => setIsLangOpen(!isLangOpen)}
-              className="flex items-center gap-1 font-bold text-gray-700 bg-gray-100 px-2.5 py-1.5 rounded-lg hover:bg-gray-200 transition text-xs">
-              🌐 {i18n.language ? i18n.language.toUpperCase() : 'VN'}
-            </button>
-            {isLangOpen && (
-              <div className="absolute right-0 mt-2 w-24 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-50">
-                {['vn','en'].map(lng => (
-                  <button key={lng} onClick={() => changeLanguage(lng)}
-                    className={`w-full text-left px-3 py-2 text-base hover:bg-blue-50 ${i18n.language === lng ? 'text-blue-600 font-bold' : 'text-gray-700'}`}>
-                    {lng === 'vn' ? '🇻🇳 VN' : '🇬🇧 EN'}
+            <div className="flex items-center gap-3 flex-shrink-0">
+              {/* Ngôn ngữ Desktop */}
+              <div className="relative" ref={desktopLangRef}>
+                <button onClick={() => setIsDesktopLangOpen(!isDesktopLangOpen)} className="flex items-center gap-1 font-bold text-gray-700 bg-gray-100 px-2.5 py-1.5 rounded-lg hover:bg-gray-200 transition text-xs">
+                  🌐 {i18n.language ? i18n.language.toUpperCase() : 'VN'}
+                </button>
+                {isDesktopLangOpen && (
+                  <div className="absolute right-0 mt-2 w-24 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-50">
+                    {['vn','en'].map(lng => (
+                      <button key={lng} onClick={() => changeLanguage(lng)} className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${i18n.language === lng ? 'text-blue-600 font-bold' : 'text-gray-700'}`}>
+                        {lng === 'vn' ? '🇻🇳 VN' : '🇬🇧 EN'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {token ? (
+                <div className="relative" ref={userRef}>
+                  <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)} className="flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition">
+                    <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">{avatarChar}</span>
+                    <span className="text-sm font-bold text-blue-800 max-w-[100px] truncate">{displayName}</span>
+                    <span className="text-gray-400 text-[10px]">▼</span>
                   </button>
-                ))}
+                  {isUserMenuOpen && <UserMenuDropdown />}
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Link to="/login" className="text-gray-700 font-semibold hover:text-blue-600 text-sm transition">{t('menu.login')}</Link>
+                  <Link to="/register" className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition text-sm">{t('menu.register')}</Link>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* GIAO DIỆN MOBILE */}
+          <div className="flex md:hidden items-center justify-between w-full h-12">
+            {isAuthPage ? (
+              <div className="w-10" />
+            ) : (
+              <div className="flex-shrink-0">
+                <button onClick={() => setIsMobileMenuOpen(true)} className="p-2 -ml-2 text-gray-700 hover:text-blue-600 transition">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-7 h-7">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                  </svg>
+                </button>
+              </div>
+            )}
+            
+            <div className="flex-1 flex justify-center">
+              <Link to="/"><img src="/logo.png" alt="Logo" className="h-9 w-auto object-contain"/></Link>
+            </div>
+            
+            {isAuthPage ? (
+              // Trực tiếp hiện Dropdown ngôn ngữ cho Mobile ở trang Auth
+              <div className="flex-shrink-0 relative" ref={mobileLangRef}>
+                <button onClick={() => setIsMobileLangOpen(!isMobileLangOpen)} className="flex items-center gap-1 font-bold text-gray-700 bg-gray-100 px-2.5 py-1.5 rounded-lg hover:bg-gray-200 transition text-xs">
+                  🌐 {i18n.language ? i18n.language.toUpperCase() : 'VN'}
+                </button>
+                {isMobileLangOpen && (
+                  <div className="absolute right-0 mt-2 w-24 bg-white rounded-lg shadow-xl border border-gray-100 overflow-hidden z-50">
+                    {['vn','en'].map(lng => (
+                      <button key={lng} onClick={() => changeLanguage(lng)} className={`w-full text-left px-3 py-2 text-sm hover:bg-blue-50 ${i18n.language === lng ? 'text-blue-600 font-bold' : 'text-gray-700'}`}>
+                        {lng === 'vn' ? '🇻🇳 VN' : '🇬🇧 EN'}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center flex-shrink-0">
+                <button onClick={() => setIsMobileSearchOpen(!isMobileSearchOpen)} className={`p-2 rounded-full transition ${isMobileSearchOpen ? 'bg-blue-50 text-blue-600' : 'text-gray-700 hover:text-blue-600'}`}>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+                  </svg>
+                </button>
               </div>
             )}
           </div>
 
-          {/* Tài khoản - ĐÃ KHÔI PHỤC ĐẦY ĐỦ MENU */}
-          {token ? (
-            <div className="relative" ref={userRef}>
-              <button onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
-                className="flex items-center gap-1.5 bg-blue-50 px-3 py-1.5 rounded-full hover:bg-blue-100 transition">
-                <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                  {avatarChar}
-                </span>
-                <span className="text-base font-bold text-blue-800 hidden sm:block max-w-[80px] truncate">
-                  {displayName}
-                </span>
-                <span className="text-gray-400 text-xs">▼</span>
-              </button>
-
-              {isUserMenuOpen && (
-                <div className="absolute right-0 mt-3 w-60 bg-white rounded-xl shadow-2xl border border-gray-100 overflow-hidden z-50">
-                  <div className="bg-gradient-to-r from-blue-600 to-blue-400 p-4 text-white">
-                    <p className="font-bold leading-tight">{userName || 'Người dùng'}</p>
-                    <p className="text-xs text-blue-100 truncate mt-0.5">{userEmail}</p>
-                    <span className="text-xs font-bold bg-white text-blue-600 inline-block px-2 py-0.5 rounded mt-2 uppercase">
-                      {userRole === 'ADMIN' ? 'Quản trị viên' :
-                       userRole === 'AUTHOR' ? 'Sáng tạo nội dung' : 'Thành viên'}
-                    </span>
-                  </div>
-                  <div className="p-2 space-y-0.5">
-                    {userRole === 'ADMIN' && (<>
-                      <Link to="/admin" onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-purple-700 hover:bg-purple-50 rounded-lg font-bold text-base transition">
-                        ⚙️ Quản lý Hệ thống
-                      </Link>
-                      <Link to="/admin/revenue" onClick={() => setIsUserMenuOpen(false)}
-                        className="flex items-center gap-2 px-4 py-2.5 text-yellow-700 hover:bg-yellow-50 rounded-lg font-bold text-base transition">
-                        💰 Báo cáo Doanh thu
-                      </Link>
-                    </>)}
-                    {userRole === 'AUTHOR' && (
-                      <>
-                        <Link to="/author" onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2.5 text-green-700 hover:bg-green-50 rounded-lg font-bold text-base transition">
-                          ✍️ Quản lý Nội dung
-                        </Link>
-                        <Link to="/author/bookings" onClick={() => setIsUserMenuOpen(false)}
-                          className="flex items-center gap-2 px-4 py-2.5 text-blue-700 hover:bg-blue-50 rounded-lg font-bold text-base transition">
-                          📋 Thông tin đặt tour
-                        </Link>
-                      </>
-                    )}
-
-                    <Link to="/favorites" onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2.5 text-red-500 hover:bg-red-50 rounded-lg text-base transition font-semibold">
-                      ❤️ Yêu thích của tôi
-                    </Link>
-                    <Link to="/my-bookings" onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2.5 text-gray-700
-                        hover:bg-blue-50 rounded-lg text-sm transition">
-                      🎫 Lịch sử đặt tour
-                    </Link>
-                    <Link to="/settings" onClick={() => setIsUserMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-blue-50 rounded-lg text-base transition">
-                      👤 Chỉnh sửa hồ sơ
-                    </Link>
-                    <hr className="my-1 border-gray-100" />
-                    <button onClick={handleLogout}
-                      className="w-full flex items-center gap-2 px-4 py-2.5 text-red-600 hover:bg-red-50 rounded-lg text-base transition">
-                      🚪 Đăng xuất
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Link to="/login" className="text-gray-700 font-semibold hover:text-blue-600 text-base transition">
-                {t('menu.login')}
-              </Link>
-              <Link to="/register" className="bg-blue-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-blue-700 transition text-base">
-                {t('menu.register')}
-              </Link>
+          {isMobileSearchOpen && !isAuthPage && (
+            <div className="md:hidden mt-2 mb-1 animate-fade-in-down">
+              <SearchBar compact />
             </div>
           )}
         </div>
-      </div>
-    </nav>
+      </nav>
+
+      {/* MENU DRAWER MOBILE */}
+      {!isAuthPage && (
+        <div className={`fixed inset-0 z-[100] flex transition-opacity duration-300 md:hidden ${
+            isMobileMenuOpen ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'
+          }`}>
+          
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)} />
+
+          <div className={`relative w-[85vw] max-w-[340px] h-[100dvh] bg-white shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+              isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}>
+            
+            <div className="flex-shrink-0 z-10">
+              {token ? (
+                <div className="bg-gradient-to-r from-blue-600 to-blue-400 p-5 text-white shadow-sm">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-white text-blue-600 rounded-full w-12 h-12 flex items-center justify-center text-xl font-extrabold flex-shrink-0 shadow-inner">
+                      {avatarChar}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-bold text-base leading-tight truncate">{userName || t('userMenu.defaultUser')}</p>
+                      <p className="text-sm text-blue-100 truncate">{userEmail}</p>
+                      <span className="text-[10px] font-bold bg-white text-blue-600 inline-block px-2 py-0.5 rounded mt-1.5 uppercase shadow-sm">
+                        {userRole === 'ADMIN' ? t('userMenu.roleAdmin') : userRole === 'AUTHOR' ? t('userMenu.roleAuthor') : t('userMenu.roleMember')}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-5 space-y-3 bg-gray-50 border-b border-gray-100">
+                  <img src="/logo.png" alt="Logo" className="h-8 w-auto mb-4" />
+                  <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="block w-full text-center bg-blue-600 text-white font-bold py-2.5 rounded-xl hover:bg-blue-700 shadow-md">
+                    {t('menu.login')}
+                  </Link>
+                  <Link to="/register" onClick={() => setIsMobileMenuOpen(false)} className="block w-full text-center bg-white border-2 border-blue-600 text-blue-600 font-bold py-2.5 rounded-xl hover:bg-blue-50">
+                    {t('menu.register')}
+                  </Link>
+                </div>
+              )}
+            </div>
+
+            <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain flex flex-col">
+              <div className="px-2 py-4">
+                <div className="mb-4">
+                  <p className="text-xs text-gray-400 font-bold uppercase px-4 pt-1 pb-2 tracking-wider">{t('userMenu.discover')}</p>
+                  <div className="space-y-1">
+                    <Link to="/locations" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-50 font-semibold text-gray-700 transition">
+                      <span className="text-xl">🗺️</span> {t('menu.locations')}
+                    </Link>
+                    <Link to="/tours" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-50 font-semibold text-gray-700 transition">
+                      <span className="text-xl">🧳</span> {t('menu.tours')}
+                    </Link>
+                    <Link to="/articles" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-blue-50 font-semibold text-gray-700 transition">
+                      <span className="text-xl">📖</span> {t('menu.articles')}
+                    </Link>
+                  </div>
+                </div>
+
+                {token && <div className="px-4 my-2"><hr className="border-gray-200" /></div>}
+
+                {token && (
+                  <div>
+                    <p className="text-xs text-gray-400 font-bold uppercase px-4 pt-4 pb-2 tracking-wider">{t('userMenu.accountInfo')}</p>
+                    <div className="space-y-1">
+                      {userRole === 'ADMIN' && (<>
+                        <Link to="/admin" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-purple-700 hover:bg-purple-50 rounded-xl font-bold transition">
+                          <span className="text-xl">⚙️</span> {t('userMenu.adminSystem')}
+                        </Link>
+                        <Link to="/admin/revenue" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-yellow-700 hover:bg-yellow-50 rounded-xl font-bold transition">
+                          <span className="text-xl">💰</span> {t('userMenu.adminRevenue')}
+                        </Link>
+                      </>)}
+                      
+                      {userRole === 'AUTHOR' && (<>
+                        <Link to="/author" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-green-700 hover:bg-green-50 rounded-xl font-bold transition">
+                          <span className="text-xl">✍️</span> {t('userMenu.authorContent')}
+                        </Link>
+                        <Link to="/author/bookings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-blue-700 hover:bg-blue-50 rounded-xl font-bold transition">
+                          <span className="text-xl">📋</span> {t('userMenu.authorBookings')}
+                        </Link>
+                      </>)}
+
+                      <Link to="/favorites" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-50 rounded-xl font-bold transition">
+                        <span className="text-xl">❤️</span> {t('userMenu.favorites')}
+                      </Link>
+                      <Link to="/my-bookings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 rounded-xl font-semibold transition">
+                        <span className="text-xl">🎫</span> {t('userMenu.myBookings')}
+                      </Link>
+                      <Link to="/settings" onClick={() => setIsMobileMenuOpen(false)} className="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-blue-50 rounded-xl font-semibold transition">
+                        <span className="text-xl">👤</span> {t('userMenu.settings')}
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-auto p-4 border-t border-gray-100 bg-gray-50 space-y-3">
+                <div className="flex gap-2 bg-white p-1 rounded-xl border border-gray-200">
+                  {['vn', 'en'].map(lng => (
+                    <button key={lng} onClick={() => changeLanguage(lng)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-bold transition ${
+                        i18n.language === lng ? 'bg-blue-100 text-blue-700 shadow-sm' : 'text-gray-500 hover:bg-gray-50'
+                      }`}>
+                      {lng === 'vn' ? '🇻🇳 VN' : '🇬🇧 EN'}
+                    </button>
+                  ))}
+                </div>
+                {token && (
+                  <button onClick={handleLogout} className="w-full flex items-center justify-center gap-2 py-3 text-red-600 hover:bg-red-50 rounded-xl text-sm font-bold border-2 border-red-100 transition bg-white">
+                    🚪 {t('userMenu.logout')}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div className="relative flex-1 flex justify-center pt-5">
+            <button onClick={() => setIsMobileMenuOpen(false)} className={`text-white p-2 h-12 w-12 rounded-full border-2 border-white/30 bg-black/20 backdrop-blur hover:bg-black/40 hover:scale-110 transition-all duration-300 ${isMobileMenuOpen ? 'scale-100 opacity-100' : 'scale-50 opacity-0'}`}>
+              <svg className="w-7 h-7 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 

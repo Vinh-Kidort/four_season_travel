@@ -13,6 +13,13 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+
+@Tag(name = "Revenue", description = "Quản lý doanh thu, báo cáo tài chính và dữ liệu thống kê biểu đồ (Admin)")
 @RestController
 @RequestMapping("/api/v1/revenue")
 public class RevenueController {
@@ -20,6 +27,14 @@ public class RevenueController {
     @Autowired private BookingRepository bookingRepository;
     @Autowired private TourRepository    tourRepository;
 
+
+    @Operation(summary = "Lấy báo cáo thống kê và biểu đồ doanh thu (Dashboard)",
+            description = "Truy vấn toàn bộ đơn đặt chỗ để tổng hợp: Tổng doanh thu cọc thực tế (20% đơn confirmed) trong năm chỉ định, dữ liệu vẽ biểu đồ theo Tháng hoặc Quý, danh sách Top 5 tour có doanh thu cao nhất, và danh sách các đơn đặt tour mới đang chờ duyệt thanh toán.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Lấy dữ liệu báo cáo thống kê thành công"),
+            @ApiResponse(responseCode = "401", description = "Chưa đăng nhập / Token không hợp lệ hoặc hết hạn"),
+            @ApiResponse(responseCode = "403", description = "Không có quyền truy cập (Chỉ Admin mới có quyền xem doanh thu)")
+    })
     @GetMapping("/dashboard")
     public ResponseEntity<RevenueResponse> getDashboardData(
             @RequestParam int    year,

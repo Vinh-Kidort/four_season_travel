@@ -94,7 +94,7 @@ public class AccountLockoutService {
 
         return String.format(
                 "Tài khoản bị khóa do nhập sai mật khẩu quá nhiều lần. "
-                        + "Vui lòng thử lại sau %d phút.", minutesLeft);
+                        + "Vui lòng thử lại sau %d phút. Tài khoản sẽ được mở khóa lúc %s.", minutesLeft, user.getLockedUntil().toString());
     }
 
     /**
