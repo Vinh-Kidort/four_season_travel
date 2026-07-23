@@ -17,12 +17,12 @@
 ### 1. Customer Perspective (User Experience & Booking Flow)
 *Showcases the modern responsive UI, mobile-first horizontal swipe/scroll lists, multi-language switching, and the seamless VietQR automatic deposit payment with Webhook/Polling integration.*
 
-[![Customer Perspective](https://img.youtube.com/vi/[ID_VIDEO_YOUTUBE_1](https://youtu.be/0M9QiOg440I?si=VXuIdpVCDLDj6_zQ)/0.jpg)](https://www.youtube.com/watch?v=[ID_VIDEO_YOUTUBE_1](https://youtu.be/0M9QiOg440I?si=VXuIdpVCDLDj6_zQ))
+[![Customer Perspective](https://img.youtube.com/vi/I0M9QiOg440I/0.jpg)](https://www.youtube.com/watch?v=0M9QiOg440I)
 
 ### 2. Management Perspective (Author, Admin & System Security)
 *Showcases the Author CMS Dashboard, Admin approval workflow (with Preview Modals, quick counters, and revenue reports), plus advanced non-functional security layers preventing brute-force and DDoS attacks.*
 
-[![Management Perspective](https://img.youtube.com/vi/[ID_VIDEO_YOUTUBE_2](https://youtu.be/YZeWNQt0L-U)/0.jpg)](https://www.youtube.com/watch?v=[ID_VIDEO_YOUTUBE_2](https://youtu.be/YZeWNQt0L-U))
+[![Management Perspective](https://img.youtube.com/vi/YZeWNQt0L-U/0.jpg)](https://www.youtube.com/watch?v=YZeWNQt0L-U)
 
 ---
 
