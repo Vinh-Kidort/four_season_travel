@@ -4,10 +4,10 @@ import numpy as np
 import io
 from PIL import Image
 
-# DÙNG THƯ VIỆN LITERT CỦA GOOGLE (KHÔNG DÙNG TRY-EXCEPT NỮA)
+# Nhập trực tiếp thư viện LiteRT của Google
 import ai_edge_litert.interpreter as tflite
 
-app = FastAPI(title="AI Travel API", version="1.0")
+app = FastAPI(title="AI Travel API (LiteRT)", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
@@ -17,13 +17,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 1. Nạp mô hình TFLite bằng LiteRT Interpreter
 print("⏳ Đang nạp Model AI TFLite lên RAM... Vui lòng đợi...")
-interpreter = tflite.Interpreter(model_path="model.tflite")
-interpreter.allocate_tensors()
+try:
+    interpreter = tflite.Interpreter(model_path="model.tflite")
+    interpreter.allocate_tensors()
 
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-print("✅ Nạp Model TFLite thành công! Server đã sẵn sàng.")
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
+    print("✅ Nạp Model TFLite thành công! Server đã sẵn sàng.")
+except Exception as e:
+    print(f"❌ Lỗi khi nạp mô hình: {e}")
+
 CLASS_NAMES = [
     'cau_vang_da_nang', 'cho_ben_thanh', 'cho_noi_cai_rang', 'chua_cau_hoi_an', 'cot_co_lung_cu','dai_noi_hue',
     'doi_cat_mui_ne', 'doi_che_cau_dat', 'ganh_da_dia', 'ha_long_bay', 'hang_mua', 'ho_guom', 'hoi_an', 'landmark_81',
@@ -54,20 +59,20 @@ async def predict_image(file: UploadFile = File(...)):
         img = Image.open(io.BytesIO(contents)).convert('RGB')
         img = img.resize((224, 224))
         
-        # Chuyển ảnh thành mảng Numpy dạng float32 (Thay thế img_to_array)
+        # Chuyển ảnh thành mảng Numpy dạng float32
         img_array = np.array(img, dtype=np.float32)
-        img_array = np.expand_dims(img_array, axis=0) # [1, 224, 224, 3]
+        img_array = np.expand_dims(img_array, axis=0)  # Thêm chiều batch: [1, 224, 224, 3]
         
         # Tiền xử lý ResNet50 bằng Numpy
         img_array = preprocess_resnet50_numpy(img_array)
         
-        # Đưa ảnh vào mô hình TFLite
+        # Đưa ảnh vào đầu vào của mô hình TFLite
         interpreter.set_tensor(input_details[0]['index'], img_array)
         
-        # Chạy dự đoán
+        # Chạy suy luận dự đoán
         interpreter.invoke()
         
-        # Lấy kết quả từ cổng đầu ra
+        # Lấy kết quả đầu ra từ mô hình
         predictions = interpreter.get_tensor(output_details[0]['index'])
         
         confidence = float(np.max(predictions[0])) * 100

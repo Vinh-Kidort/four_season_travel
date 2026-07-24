@@ -2,9 +2,9 @@ import React, {
   createContext, useContext,
   useState, useEffect, useCallback
 } from 'react';
-import axios     from './api/axios';
+import axios     from '../api/axios';
 import axiosRaw  from 'axios';
-import { tokenManager } from './api/tokenManager';
+import { tokenManager, clearAuthStorage, persistAuthData } from '../api/tokenManager';
 
 const AuthContext = createContext();
 
@@ -39,7 +39,7 @@ export function AuthProvider({ children }) {
 
       } catch {
         // Chưa đăng nhập hoặc refresh token hết hạn
-        tokenManager.clearToken();
+        clearAuthStorage();
         setUser(null);
       } finally {
         setLoading(false);
@@ -52,11 +52,8 @@ export function AuthProvider({ children }) {
   // ── Lắng nghe event session hết hạn từ axios interceptor ─────
   useEffect(() => {
     const handleSessionExpired = () => {
-      tokenManager.clearToken();
+      clearAuthStorage();
       setUser(null);
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userRole');
       window.location.href = '/login';
     };
 
@@ -84,18 +81,13 @@ export function AuthProvider({ children }) {
   const login = useCallback((data) => {
     // data.accessToken từ backend (refreshToken đã được set vào Cookie)
     const accessToken = data.accessToken || data.token;
-    tokenManager.setToken(accessToken);
-
     const userData = {
       name:  data.name  || '',
       email: data.email || '',
       role:  data.role  || 'USER',
     };
+    persistAuthData(accessToken, userData);
     setUser(userData);
-
-    localStorage.setItem('userName',  userData.name);
-    localStorage.setItem('userEmail', userData.email);
-    localStorage.setItem('userRole',  userData.role);
   }, []);
 
   // ── Logout ────────────────────────────────────────────────────
@@ -106,11 +98,8 @@ export function AuthProvider({ children }) {
     } catch {
       // ignore
     } finally {
-      tokenManager.clearToken();
+      clearAuthStorage();
       setUser(null);
-      localStorage.removeItem('userName');
-      localStorage.removeItem('userEmail');
-      localStorage.removeItem('userRole');
     }
   }, []);
 

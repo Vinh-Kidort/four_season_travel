@@ -339,12 +339,20 @@ function TourDetail() {
               rounded-2xl shadow-xl p-6">
 
               <div className="flex items-end gap-2 mb-4 pb-4 border-b border-gray-100">
-                <span className="text-3xl font-extrabold text-blue-600 leading-none">
-                  {(selectedDep?.price || tour.price)?.toLocaleString('vi-VN')}đ
-                </span>
-                <span className="text-gray-500 font-medium pb-1">
-                  {t('tourDetail.perPerson')}
-                </span>
+                {selectedDep ? (
+                  <>
+                    <span className="text-3xl font-extrabold text-blue-600 leading-none">
+                      {selectedDep.price?.toLocaleString('vi-VN')}đ
+                    </span>
+                    <span className="text-gray-500 font-medium pb-1">
+                      {t('tourDetail.perPerson')}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-gray-400 text-base italic">
+                    {t('tourDetail.selectDateToSeePrice')}
+                  </span>
+                )}
               </div>
 
               {selectedDep ? (
@@ -368,22 +376,25 @@ function TourDetail() {
                 </div>
               )}
 
-              <div className="space-y-3 mb-6">
-                <div className="flex justify-between items-center p-3 bg-gray-50
-                  rounded-lg text-sm">
-                  <span className="text-gray-600">{t('tourDetail.availableSpots')}</span>
-                  <span className="font-bold">
-                    {selectedDep?.availableSlots ?? tour.availableSlots} {t('tourDetail.spots')}
-                  </span>
+              {selectedDep && (
+                <div className="space-y-3 mb-6">
+                  <div className="flex justify-between items-center p-3 bg-gray-50
+                    rounded-lg text-sm">
+                    <span className="text-gray-600">{t('tourDetail.availableSpots')}</span>
+                    <span className="font-bold">
+                      {selectedDep.availableSlots} {t('tourDetail.spots')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-gray-50
+                    rounded-lg text-sm">
+                    <span className="text-gray-600">{t('tourDetail.deposit')}</span>
+                    <span className="font-bold text-amber-600">
+                      {(selectedDep.price * 0.2)?.toLocaleString('vi-VN')}đ
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center p-3 bg-gray-50
-                  rounded-lg text-sm">
-                  <span className="text-gray-600">{t('tourDetail.deposit')}</span>
-                  <span className="font-bold text-amber-600">
-                    {((selectedDep?.price || tour.price) * 0.2)?.toLocaleString('vi-VN')}đ
-                  </span>
-                </div>
-              </div>
+              )}
+              {!selectedDep && <div className="mb-6" />}
 
               {activeDepartures.length > 0 ? (
                 <button
@@ -421,7 +432,21 @@ function TourDetail() {
         <div>
           <p className="text-xs text-gray-500 mb-0.5">{t('tourDetail.ticketPrice')}</p>
           <p className="text-blue-600 font-bold text-lg sm:text-xl leading-none">
-            {(selectedDep?.price || tour.price)?.toLocaleString('vi-VN')}đ
+            {selectedDep ? (
+              <>
+                <span className="text-3xl font-extrabold text-blue-600 leading-none">
+                  {selectedDep.price?.toLocaleString('vi-VN')}đ
+                </span>
+                <span className="text-gray-500 font-medium pb-1">
+                  {isEng ? '/ person' : '/ khách'}
+                </span>
+              </>
+            ) : (
+              <span className="text-gray-400 text-base italic">
+                {isEng ? 'Select a departure date to see price'
+                        : 'Chọn ngày khởi hành để xem giá'}
+              </span>
+            )}
           </p>
         </div>
         {activeDepartures.length > 0 ? (

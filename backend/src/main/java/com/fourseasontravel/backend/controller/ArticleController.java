@@ -1,21 +1,21 @@
 package com.fourseasontravel.backend.controller;
 
+import com.fourseasontravel.backend.dto.ArticleResponseDTO;
 import com.fourseasontravel.backend.model.Article;
 import com.fourseasontravel.backend.service.ArticleService;
 import com.fourseasontravel.backend.service.SearchService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Optional;
-import org.springframework.security.core.context.SecurityContextHolder;
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import java.util.stream.Collectors;
 
 @Tag(name = "Articles", description = "Quản lý Bài viết & Cẩm nang du lịch (Đăng bài, kiểm duyệt, dọn dẹp bản nháp)")
 @RestController
@@ -34,8 +34,11 @@ public class ArticleController {
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công")
     })
     @GetMapping
-    public ResponseEntity<List<Article>> getAll() {
-        return ResponseEntity.ok(articleService.getAllArticles());
+    public ResponseEntity<List<ArticleResponseDTO>> getAll() {
+        List<ArticleResponseDTO> articles = articleService.getAllArticles().stream()
+                .map(ArticleResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(articles);
     }
 
 
@@ -45,9 +48,10 @@ public class ArticleController {
             @ApiResponse(responseCode = "404", description = "Không tìm thấy bài viết với ID đã cung cấp")
     })
     @GetMapping("/{id}")
-    public ResponseEntity<Article> getById(@PathVariable String id) {
-        Optional<Article> article = articleService.getArticleById(id);
-        return article.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.notFound().build());
+    public ResponseEntity<ArticleResponseDTO> getById(@PathVariable String id) {
+        return articleService.getArticleById(id)
+                .map(article -> ResponseEntity.ok(ArticleResponseDTO.from(article)))
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
 
@@ -57,9 +61,12 @@ public class ArticleController {
             @ApiResponse(responseCode = "401", description = "Chưa đăng nhập / Token không hợp lệ")
     })
     @GetMapping("/my-articles")
-    public ResponseEntity<List<Article>> getMyArticles() {
-        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        return ResponseEntity.ok(articleService.getArticlesByAuthor(email));
+    public ResponseEntity<List<ArticleResponseDTO>> getMyArticles() {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        List<ArticleResponseDTO> articles = articleService.getArticlesByAuthor(email).stream()
+                .map(ArticleResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(articles);
     }
 
 
@@ -69,8 +76,11 @@ public class ArticleController {
             @ApiResponse(responseCode = "403", description = "Chỉ Admin mới có quyền truy cập")
     })
     @GetMapping("/pending")
-    public ResponseEntity<List<Article>> getPendingArticles() {
-        return ResponseEntity.ok(articleService.getPendingArticles());
+    public ResponseEntity<List<ArticleResponseDTO>> getPendingArticles() {
+        List<ArticleResponseDTO> articles = articleService.getPendingArticles().stream()
+                .map(ArticleResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(articles);
     }
 
 
@@ -81,9 +91,10 @@ public class ArticleController {
             @ApiResponse(responseCode = "403", description = "Không có quyền thực hiện hành động này")
     })
     @PostMapping
-    public ResponseEntity<Article> create(@RequestBody Article article) {
-        String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        return new ResponseEntity<>(articleService.createArticle(article, email), HttpStatus.CREATED);
+    public ResponseEntity<ArticleResponseDTO> create(@RequestBody Article article) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        Article createdArticle = articleService.createArticle(article, email);
+        return new ResponseEntity<>(ArticleResponseDTO.from(createdArticle), HttpStatus.CREATED);
     }
 
 
@@ -92,8 +103,11 @@ public class ArticleController {
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công")
     })
     @GetMapping("/approved")
-    public ResponseEntity<List<Article>> getApprovedArticles() {
-        return ResponseEntity.ok(articleService.getApprovedArticles());
+    public ResponseEntity<List<ArticleResponseDTO>> getApprovedArticles() {
+        List<ArticleResponseDTO> articles = articleService.getApprovedArticles().stream()
+                .map(ArticleResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(articles);
     }
 
 
@@ -105,7 +119,8 @@ public class ArticleController {
     @PutMapping("/{id}/approve")
     public ResponseEntity<?> approveArticle(@PathVariable String id) {
         try {
-            return ResponseEntity.ok(articleService.approveArticle(id));
+            Article approvedArticle = articleService.approveArticle(id);
+            return ResponseEntity.ok(ArticleResponseDTO.from(approvedArticle));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -114,16 +129,17 @@ public class ArticleController {
     @PutMapping("/{id}/reject")
     public ResponseEntity<?> rejectArticle(@PathVariable String id) {
         try {
-            return ResponseEntity.ok(articleService.rejectArticle(id));
+            Article rejectedArticle = articleService.rejectArticle(id);
+            return ResponseEntity.ok(ArticleResponseDTO.from(rejectedArticle));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<Article> update(@PathVariable String id, @RequestBody Article article) {
+    public ResponseEntity<ArticleResponseDTO> update(@PathVariable String id, @RequestBody Article article) {
         Article updated = articleService.updateArticle(id, article);
-        return updated != null ? ResponseEntity.ok(updated) : ResponseEntity.notFound().build();
+        return updated != null ? ResponseEntity.ok(ArticleResponseDTO.from(updated)) : ResponseEntity.notFound().build();
     }
 
     @DeleteMapping("/{id}")

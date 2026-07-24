@@ -4,8 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { Meilisearch } from 'meilisearch';
 import axios from '../api/axios'; 
 import { tokenManager } from '../api/tokenManager';
+import { getAiPredictUrl } from '../utils/aiConfig';
 
-const USE_ATLAS = import.meta.env.VITE_USE_ATLAS_SEARCH === 'true';
+const USE_ATLAS = process.env.REACT_APP_USE_ATLAS_SEARCH === 'true' || process.env.VITE_USE_ATLAS_SEARCH === 'true';
 
 const meiliHost = process.env.REACT_APP_MEILISEARCH_HOST;
 const meiliKey = process.env.REACT_APP_MEILISEARCH_API_KEY;
@@ -95,7 +96,7 @@ export function SearchBar({ compact = false }) {
     const timer = setTimeout(async () => {
       setIsSearching(true);
        try {
-        if (meiliClient) {
+        if (!USE_ATLAS && meiliClient) {
           const [tourRes, articleRes, locationRes] = await Promise.all([
             meiliClient.index('tours').search(keyword, { limit: 3 }),
             meiliClient.index('articles').search(keyword, { limit: 2 }),
@@ -201,7 +202,13 @@ export function SearchBar({ compact = false }) {
     formData.append('file', file);
 
     try {
-      const response = await fetch(process.env.REACT_APP_AI_PREDICT_URL, {
+      const aiUrl = getAiPredictUrl(process.env);
+      if (!aiUrl) {
+        showToast('error', 'Cấu hình AI chưa sẵn sàng', 'Vui lòng thiết lập biến môi trường AI để sử dụng chức năng này.');
+        return;
+      }
+
+      const response = await fetch(aiUrl, {
         method: 'POST',
         body: formData,
       });

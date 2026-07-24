@@ -590,7 +590,11 @@ function BookingPage() {
               <h2 className="text-base sm:text-xl font-bold line-clamp-1">{tour.name}</h2>
               <div className="flex flex-wrap gap-2 sm:gap-4 mt-2 text-xs sm:text-sm text-blue-100">
                 <span>⏱️ {tour.duration}</span>
-                <span>👥 {t('bookingPage.spotsLeft', { count: tour.availableSlots })}</span>
+                <span>
+                  👥 {t('bookingPage.spotsLeft', {
+                    count: departure?.availableSlots ?? tour.availableSlots
+                  })}
+                </span>
               </div>
             </div>
 
@@ -689,7 +693,16 @@ function BookingPage() {
                         const isSelected = departure?.id === dep.id;
                         return (
                           <button key={dep.id} type="button"
-                            onClick={() => !isFull && setDeparture(dep)}
+                            onClick={() => {
+                              if (!isFull) {
+                                setDeparture(dep);
+                                // Reset về 1 nếu số người hiện tại vượt quá slots của departure mới
+                                setForm(prev => ({
+                                  ...prev,
+                                  numberOfPeople: Math.min(prev.numberOfPeople, dep.availableSlots)
+                                }));
+                              }
+                            }}
                             disabled={isFull}
                             className={`w-full text-left p-3 rounded-xl border-2 transition-all ${
                               isFull
@@ -751,12 +764,14 @@ function BookingPage() {
               <div>
                 <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1">
                   {t('bookingPage.numberOfPeople')}
-                  <span className="text-gray-400 font-normal ml-1">
-                    ({t('bookingPage.maxSlots', { count: tour.availableSlots })})
-                  </span>
+                  {departure && (
+                    <span className="text-gray-400 font-normal ml-1">
+                      ({t('bookingPage.maxSlots', { count: departure.availableSlots })})
+                    </span>
+                  )}
                 </label>
                 <input name="numberOfPeople" type="number"
-                  min="1" max={tour.availableSlots}
+                  min="1" max={departure?.availableSlots || tour.availableSlots}
                   value={form.numberOfPeople} onChange={handleChange} required
                   className="w-full border rounded-lg px-3 py-2 text-sm
                     focus:ring-2 focus:ring-blue-400 outline-none" />

@@ -1,5 +1,7 @@
 package com.fourseasontravel.backend.controller;
 
+import com.fourseasontravel.backend.dto.AuthResponseDTO;
+import com.fourseasontravel.backend.dto.ErrorResponse;
 import com.fourseasontravel.backend.model.User;
 import com.fourseasontravel.backend.repository.UserRepository;
 import com.fourseasontravel.backend.security.JwtUtil;
@@ -14,9 +16,11 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Map;
 
@@ -38,24 +42,21 @@ public class AuthController {
     private UserDeletionService userDeletionService;
 
     @Autowired
-    private RefreshTokenService  refreshTokenService;
+    private RefreshTokenService refreshTokenService;
 
     @Autowired
-    private UserRepository       userRepository;
+    private UserRepository userRepository;
 
     @Operation(summary = "Gửi mã OTP đăng ký tài khoản", description = "Xác thực reCAPTCHA và gửi mã OTP xác nhận về hòm thư email của khách hàng đăng ký mới.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Gửi mã OTP thành công"),
             @ApiResponse(responseCode = "400", description = "Xác thực reCAPTCHA thất bại hoặc email đã tồn tại trong hệ thống")
     })
-    //  BƯỚC 1: Gửi OTP
     @PostMapping("/register/send-otp")
-    public ResponseEntity<?> sendRegisterOtp(@RequestBody Map<String, String> body) {
-        // Verify reCAPTCHA
-            if (!recaptchaService.verify(body.get("captchaToken"))) {
-                return ResponseEntity.badRequest().body(
-                        Map.of("error", "Xác thực reCAPTCHA thất bại!"));
-            }
+    public ResponseEntity<?> sendRegisterOtp(@RequestBody Map<String, String> body, HttpServletRequest request) {
+        if (!recaptchaService.verify(body.get("captchaToken"))) {
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "CAPTCHA_FAILED", "Xác thực reCAPTCHA thất bại!", LocalDateTime.now().toString(), request.getRequestURI()));
+        }
         try {
             authService.sendRegisterOtp(
                     body.get("name"),
@@ -64,10 +65,10 @@ public class AuthController {
             );
             return ResponseEntity.ok(Map.of(
                     "message", "Mã OTP đã được gửi đến " + body.get("email"),
-                    "email",   body.get("email")
+                    "email", body.get("email")
             ));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "REGISTRATION_ERROR", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
@@ -77,19 +78,40 @@ public class AuthController {
             @ApiResponse(responseCode = "200", description = "Đăng ký thành công và tự động đăng nhập"),
             @ApiResponse(responseCode = "400", description = "Mã OTP không đúng, hết hạn hoặc nhập sai vượt quá số lần cho phép")
     })
-    //  BƯỚC 2: Xác thực OTP + hoàn tất đăng ký
     @PostMapping("/register/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> body, HttpServletRequest request, HttpServletResponse response) {
         try {
-            Map<String, String> response = authService.verifyAndRegister(
+            // Step 1: Get the tokens (as a Map<String, String>)
+            Map<String, String> tokens = authService.verifyAndRegister(
                     body.get("name"),
                     body.get("email"),
                     body.get("password"),
                     body.get("otp")
             );
-            return ResponseEntity.ok(response);
+
+            String accessToken = tokens.get("accessToken");
+            String refreshToken = tokens.get("refreshToken");
+
+            // Step 2 & 3: Extract email from token and fetch user
+            String email = jwtUtil.extractEmail(accessToken);
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found after registration, this should not happen"));
+
+            // Set cookie
+            setRefreshTokenCookie(response, refreshToken);
+
+            // Step 4 & 5: Build and return the full DTO
+            AuthResponseDTO responseDTO = AuthResponseDTO.builder()
+                    .accessToken(accessToken)
+                    .name(user.getName())
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .mustChangePassword(user.getMustChangePassword())
+                    .build();
+
+            return ResponseEntity.ok(responseDTO);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "INVALID_OTP", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
@@ -100,60 +122,58 @@ public class AuthController {
             @ApiResponse(responseCode = "400", description = "Xác thực Robot (reCAPTCHA) thất bại"),
             @ApiResponse(responseCode = "401", description = "Mật khẩu không đúng hoặc tài khoản đã bị khóa tạm thời do nhập sai nhiều lần")
     })
-    //  2. ĐĂNG NHẬP (Có xác thực reCAPTCHA)
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody Map<String, String> body,
-                                   HttpServletRequest  request,
+                                   HttpServletRequest request,
                                    HttpServletResponse response) {
-        String captchaToken = body.get("captchaToken");
         if (!recaptchaService.verify(body.get("captchaToken"))) {
-            return ResponseEntity.badRequest().body(
-                    Map.of("error", "Xác thực reCAPTCHA thất bại!"));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "CAPTCHA_FAILED", "Xác thực reCAPTCHA thất bại!", LocalDateTime.now().toString(), request.getRequestURI()));
         }
         try {
             String userAgent = request.getHeader("User-Agent");
-            String ip        = request.getRemoteAddr();
+            String ip = request.getRemoteAddr();
 
             Map<String, Object> result = authService.login(
                     body.get("email"), body.get("password"), userAgent, ip);
 
-            // Set refresh token vào HttpOnly Cookie
             setRefreshTokenCookie(response, (String) result.get("refreshToken"));
-            result.remove("refreshToken"); // Không trả về body
 
-            return ResponseEntity.ok(result);
+            AuthResponseDTO responseDTO = AuthResponseDTO.builder()
+                    .accessToken((String) result.get("accessToken"))
+                    .name((String) result.get("name"))
+                    .email((String) result.get("email"))
+                    .role((String) result.get("role"))
+                    .mustChangePassword((Boolean) result.get("mustChangePassword"))
+                    .build();
+
+            return ResponseEntity.ok(responseDTO);
         } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse(401, "AUTHENTICATION_FAILED", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
-    // ── THÊM MỚI: Refresh Access Token ───────────────────────────
     @Operation(summary = "Làm mới Access Token bằng Refresh Token (Cookie)")
     @PostMapping("/refresh-token")
-    public ResponseEntity<?> refreshToken(HttpServletRequest  request,
+    public ResponseEntity<?> refreshToken(HttpServletRequest request,
                                           HttpServletResponse response) {
         try {
             String refreshToken = getRefreshTokenFromCookie(request);
             if (refreshToken == null)
-                return ResponseEntity.status(401)
-                        .body(Map.of("error", "Không tìm thấy refresh token!"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse(401, "REFRESH_TOKEN_NOT_FOUND", "Không tìm thấy refresh token!", LocalDateTime.now().toString(), request.getRequestURI()));
 
-            // Validate trong DB
             refreshTokenService.validateRefreshToken(refreshToken);
 
-            // Validate JWT
             if (!jwtUtil.isTokenValid(refreshToken) || !jwtUtil.isRefreshToken(refreshToken))
-                return ResponseEntity.status(401)
-                        .body(Map.of("error", "Refresh token không hợp lệ!"));
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(new ErrorResponse(401, "REFRESH_TOKEN_INVALID", "Refresh token không hợp lệ!", LocalDateTime.now().toString(), request.getRequestURI()));
 
             String email = jwtUtil.extractEmail(refreshToken);
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() -> new RuntimeException("User không tồn tại!"));
 
-            // Sinh access token mới
-            String newAccessToken  = jwtUtil.generateAccessToken(email, user.getRole());
+            String newAccessToken = jwtUtil.generateAccessToken(email, user.getRole());
 
-            // Rotate refresh token
             String newRefreshToken = jwtUtil.generateRefreshToken(email);
             refreshTokenService.revokeToken(refreshToken);
             refreshTokenService.saveRefreshToken(
@@ -162,23 +182,23 @@ public class AuthController {
                     request.getRemoteAddr());
             setRefreshTokenCookie(response, newRefreshToken);
 
-            return ResponseEntity.ok(Map.of(
-                    "accessToken", newAccessToken,
-                    "token",       newAccessToken, // backward compat
-                    "email",       email,
-                    "role",        user.getRole(),
-                    "name",        user.getName()
-            ));
+            AuthResponseDTO responseDTO = AuthResponseDTO.builder()
+                    .accessToken(newAccessToken)
+                    .name(user.getName())
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .mustChangePassword(user.getMustChangePassword())
+                    .build();
+            return ResponseEntity.ok(responseDTO);
         } catch (RuntimeException e) {
             clearRefreshTokenCookie(response);
-            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse(401, "TOKEN_ERROR", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
-    // ── THÊM MỚI: Logout ─────────────────────────────────────────
     @Operation(summary = "Đăng xuất — thu hồi Refresh Token")
     @PostMapping("/logout")
-    public ResponseEntity<?> logout(HttpServletRequest  request,
+    public ResponseEntity<?> logout(HttpServletRequest request,
                                     HttpServletResponse response) {
         String refreshToken = getRefreshTokenFromCookie(request);
         if (refreshToken != null)
@@ -187,10 +207,9 @@ public class AuthController {
         return ResponseEntity.ok(Map.of("message", "Đăng xuất thành công!"));
     }
 
-    // ── THÊM MỚI: Logout tất cả thiết bị ────────────────────────
     @Operation(summary = "Đăng xuất khỏi tất cả thiết bị")
     @PostMapping("/logout-all")
-    public ResponseEntity<?> logoutAll(HttpServletRequest  request,
+    public ResponseEntity<?> logoutAll(HttpServletRequest request,
                                        HttpServletResponse response,
                                        @RequestHeader("Authorization") String authHeader) {
         try {
@@ -200,7 +219,7 @@ public class AuthController {
             clearRefreshTokenCookie(response);
             return ResponseEntity.ok(Map.of("message", "Đã đăng xuất khỏi tất cả thiết bị!"));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "LOGOUT_ERROR", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
@@ -210,16 +229,15 @@ public class AuthController {
             @ApiResponse(responseCode = "200", description = "Đổi mật khẩu thành công"),
             @ApiResponse(responseCode = "400", description = "Mật khẩu cũ không khớp hoặc mật khẩu mới không đáp ứng độ an toàn tối thiểu")
     })
-    //  Đổi mật khẩu
     @PutMapping("/change-password")
     public ResponseEntity<?> changePassword(
             @RequestBody Map<String, String> body,
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader("Authorization") String authHeader,
+            HttpServletRequest request) {
         try {
             String token = authHeader.replace("Bearer ", "");
-            String email = jwtUtil.extractUsername(token); // Dùng extractUsername như đã thống nhất ở bước trước
+            String email = jwtUtil.extractUsername(token);
 
-            // GỌI SERVICE: Không truyền forceChange từ Frontend vào nữa
             authService.changePassword(
                     email,
                     body.get("oldPassword"),
@@ -229,7 +247,7 @@ public class AuthController {
 
             return ResponseEntity.ok(Map.of("message", "Đổi mật khẩu thành công!"));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "PASSWORD_CHANGE_FAILED", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
@@ -239,15 +257,14 @@ public class AuthController {
             @ApiResponse(responseCode = "200", description = "Gửi mật khẩu tạm thời thành công"),
             @ApiResponse(responseCode = "400", description = "Email không tồn tại trong hệ thống")
     })
-    //  Quên mật khẩu
     @PostMapping("/forgot-password")
-    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body) {
+    public ResponseEntity<?> forgotPassword(@RequestBody Map<String, String> body, HttpServletRequest request) {
         try {
             authService.forgotPassword(body.get("email"));
             return ResponseEntity.ok(Map.of(
                     "message", "Mật khẩu tạm thời đã được gửi đến email của bạn!"));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "FORGOT_PASSWORD_FAILED", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
@@ -257,15 +274,14 @@ public class AuthController {
             @ApiResponse(responseCode = "200", description = "Lấy trạng thái thành công"),
             @ApiResponse(responseCode = "400", description = "Lỗi khi kiểm tra Token")
     })
-    //  Kiểm tra có cần đổi mật khẩu không
     @GetMapping("/must-change-password")
     public ResponseEntity<?> mustChangePassword(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader("Authorization") String authHeader, HttpServletRequest request) {
         try {
             boolean mustChange = authService.checkMustChangePasswordFromToken(authHeader);
             return ResponseEntity.ok(Map.of("mustChange", mustChange));
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "CHECK_MUST_CHANGE_PASSWORD_FAILED", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
@@ -275,24 +291,30 @@ public class AuthController {
             @ApiResponse(responseCode = "200", description = "Đăng nhập thành công và trả về Token hệ thống"),
             @ApiResponse(responseCode = "401", description = "Xác thực Token Google thất bại")
     })
-    // 3. ĐĂNG NHẬP GOOGLE
     @PostMapping("/google")
     public ResponseEntity<?> googleLogin(@RequestBody Map<String, String> body,
-                                         HttpServletRequest  request,
+                                         HttpServletRequest request,
                                          HttpServletResponse response) {
         try {
             String userAgent = request.getHeader("User-Agent");
-            String ip        = request.getRemoteAddr();
+            String ip = request.getRemoteAddr();
 
             Map<String, Object> result = authService.loginWithGoogle(
                     body.get("token"), userAgent, ip);
 
             setRefreshTokenCookie(response, (String) result.get("refreshToken"));
-            result.remove("refreshToken");
 
-            return ResponseEntity.ok(result);
+            AuthResponseDTO responseDTO = AuthResponseDTO.builder()
+                    .accessToken((String) result.get("accessToken"))
+                    .name((String) result.get("name"))
+                    .email((String) result.get("email"))
+                    .role((String) result.get("role"))
+                    .mustChangePassword((Boolean) result.get("mustChangePassword"))
+                    .build();
+
+            return ResponseEntity.ok(responseDTO);
         } catch (RuntimeException e) {
-            return ResponseEntity.status(401).body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(new ErrorResponse(401, "GOOGLE_AUTH_FAILED", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
@@ -304,22 +326,19 @@ public class AuthController {
     })
     @DeleteMapping("/delete-account")
     public ResponseEntity<?> deleteAccount(
-            @RequestHeader("Authorization") String authHeader) {
+            @RequestHeader("Authorization") String authHeader, HttpServletRequest request) {
         try {
             String token = authHeader.replace("Bearer ", "");
-            // ĐÃ SỬA LỖI Ở ĐÂY: Đổi extractEmail thành extractUsername
             String email = jwtUtil.extractUsername(token);
 
             userDeletionService.deleteAccount(email);
             return ResponseEntity.ok(Map.of(
                     "message", "Tài khoản đã được xóa thành công."));
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(
-                    Map.of("error", e.getMessage()));
+            return ResponseEntity.badRequest().body(new ErrorResponse(400, "ACCOUNT_DELETION_FAILED", e.getMessage(), LocalDateTime.now().toString(), request.getRequestURI()));
         }
     }
 
-    // ── Helpers: Cookie ───────────────────────────────────────────
     private void setRefreshTokenCookie(HttpServletResponse response, String token) {
         response.addHeader("Set-Cookie", String.format(
                 "refreshToken=%s; HttpOnly; Secure; Path=/api/v1/auth/refresh-token; Max-Age=%d; SameSite=Strict",

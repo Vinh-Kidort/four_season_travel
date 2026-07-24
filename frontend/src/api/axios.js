@@ -1,5 +1,6 @@
 import axios from 'axios';
-import { tokenManager } from './tokenManager';
+import { tokenManager, clearAuthStorage } from './tokenManager';
+import { shouldForceLogoutOnRefreshFailure } from './authSession';
 
 const api = axios.create({
   baseURL:         import.meta.env.REACT_API_BASE_URL || 'http://localhost:8080/api/v1',
@@ -42,10 +43,19 @@ api.interceptors.response.use(
 
     // ── Rate limit 429 ────────────────────────────────────────
     if (error.response?.status === 429) {
-      const retryAfter = error.response.data?.retryAfter || 60;
+      const errData = error.response?.data;
+      const errMessage = typeof errData === 'string'
+        ? errData
+        : (errData?.message || errData?.error || 'Too many requests');
+      const retryAfter = Number.isFinite(errData?.retryAfter)
+        ? errData.retryAfter
+        : 60;
+
       localStorage.setItem('unlockTime',
         String(Date.now() + retryAfter * 1000));
-      window.dispatchEvent(new Event('rateLimitExceeded'));
+      window.dispatchEvent(new CustomEvent('rateLimitExceeded', {
+        detail: { message: errMessage }
+      }));
       return Promise.reject(error);
     }
 
@@ -94,15 +104,12 @@ api.interceptors.response.use(
         return api(originalRequest);
 
       } catch (refreshError) {
-        // Refresh thất bại → clear session + về login
         processQueue(refreshError, null);
-        tokenManager.clearToken();
-        localStorage.removeItem('userName');
-        localStorage.removeItem('userEmail');
-        localStorage.removeItem('userRole');
 
-        // Dispatch event để AuthContext biết
-        window.dispatchEvent(new Event('sessionExpired'));
+        if (shouldForceLogoutOnRefreshFailure(refreshError)) {
+          clearAuthStorage();
+          window.dispatchEvent(new Event('sessionExpired'));
+        }
 
         return Promise.reject(refreshError);
       } finally {

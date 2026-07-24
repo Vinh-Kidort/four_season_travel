@@ -1,21 +1,23 @@
 package com.fourseasontravel.backend.controller;
 
+import com.fourseasontravel.backend.dto.BookingResponseDTO;
 import com.fourseasontravel.backend.model.Booking;
+import com.fourseasontravel.backend.security.JwtUtil;
 import com.fourseasontravel.backend.service.BookingService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
-
-import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import io.swagger.v3.oas.annotations.responses.ApiResponse;
-import io.swagger.v3.oas.annotations.responses.ApiResponses;
 
 @Tag(name = "Bookings", description = "Quản lý đặt tour (Tạo đặt tour, mã QR VietQR, duyệt, check-in, đánh giá...)")
 @RestController
@@ -24,7 +26,8 @@ public class BookingController {
 
     @Autowired
     private BookingService bookingService;
-
+    @Autowired
+    private JwtUtil        jwtUtil;
 
 
     @Operation(summary = "Lấy toàn bộ danh sách đặt tour", description = "Dành riêng cho Admin để theo dõi và quản lý tất cả các yêu cầu đặt tour trên toàn hệ thống.")
@@ -33,10 +36,12 @@ public class BookingController {
             @ApiResponse(responseCode = "403", description = "Không có quyền truy cập")
     })
     @GetMapping
-    public ResponseEntity<List<Booking>> getAll() {
-        return ResponseEntity.ok(bookingService.getAllBookings());
+    public ResponseEntity<List<BookingResponseDTO>> getAll() {
+        List<BookingResponseDTO> bookings = bookingService.getAllBookings().stream()
+                .map(BookingResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(bookings);
     }
-
 
 
     @Operation(summary = "Tạo yêu cầu đặt tour mới", description = "Khách hàng tiến hành gửi thông tin đăng ký đặt tour mới (Chờ xác nhận thanh toán).")
@@ -48,27 +53,15 @@ public class BookingController {
     public ResponseEntity<?> createBooking(@RequestBody Booking booking) {
         try {
             Booking newBooking = bookingService.createBooking(booking);
-            return new ResponseEntity<>(newBooking, HttpStatus.CREATED);
+            return new ResponseEntity<>(BookingResponseDTO.from(newBooking), HttpStatus.CREATED);
 
         } catch (RuntimeException e) {
-            // Lỗi nghiệp vụ (hết chỗ, tour không tồn tại...)
-            // Transaction đã tự rollback
-            return ResponseEntity.badRequest().body(
-                    Map.of(
-                            "success", false,
-                            "error",   e.getMessage()
-                    )
-            );
+            return ResponseEntity.badRequest().body(Map.of("success", false, "error", e.getMessage()));
 
         } catch (Exception e) {
-            // Lỗi hệ thống / transaction timeout
             System.err.println(" createBooking error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                    Map.of(
-                            "success", false,
-                            "error",   "Lỗi hệ thống! Vui lòng thử lại."
-                    )
-            );
+                    Map.of("success", false, "error", "Lỗi hệ thống! Vui lòng thử lại."));
         }
     }
 
@@ -78,12 +71,11 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Lấy thông tin QR thành công"),
             @ApiResponse(responseCode = "400", description = "Lỗi xử lý thông tin")
     })
-    // ── THÊM: endpoint lấy thông tin QR trước khi đặt ─────────────
     @GetMapping("/qr-info")
     public ResponseEntity<?> getQrInfo(
             @RequestParam String tourId,
-            @RequestParam int    numberOfPeople,
-            @RequestParam(required = false) String departureId) {  // ← THÊM
+            @RequestParam int numberOfPeople,
+            @RequestParam(required = false) String departureId) {
         try {
             return ResponseEntity.ok(
                     bookingService.getQrInfo(tourId, numberOfPeople, departureId));
@@ -98,11 +90,11 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Hủy đặt tour thành công"),
             @ApiResponse(responseCode = "400", description = "Lỗi trong quá trình xử lý hủy")
     })
-    // Thêm endpoint hủy booking
     @PutMapping("/{id}/cancel")
     public ResponseEntity<?> cancelBooking(@PathVariable String id) {
         try {
-            return ResponseEntity.ok(bookingService.cancelBooking(id));
+            Booking booking = bookingService.cancelBooking(id);
+            return ResponseEntity.ok(BookingResponseDTO.from(booking));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -118,7 +110,7 @@ public class BookingController {
     public ResponseEntity<?> confirmBooking(@PathVariable String id) {
         try {
             Booking booking = bookingService.confirmBooking(id);
-            return ResponseEntity.ok(booking);
+            return ResponseEntity.ok(BookingResponseDTO.from(booking));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -129,24 +121,29 @@ public class BookingController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công")
     })
-    // Lấy danh sách booking chờ xác nhận
     @GetMapping("/pending")
-    public ResponseEntity<List<Booking>> getPendingBookings() {
-        return ResponseEntity.ok(bookingService.getPendingBookings());
+    public ResponseEntity<List<BookingResponseDTO>> getPendingBookings() {
+        List<BookingResponseDTO> bookings = bookingService.getPendingBookings().stream()
+                .map(BookingResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(bookings);
     }
 
 
     @Operation(summary = "Lấy lịch sử đặt tour cá nhân", description = "Khách hàng lấy toàn bộ danh sách lịch sử các chuyến đi đã đặt của chính mình bằng tài khoản đang đăng nhập.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công"),
-            @ApiResponse(responseCode = "41" , description = "Chưa đăng nhập")
+            @ApiResponse(responseCode = "401", description = "Chưa đăng nhập")
     })
-    // ── Lấy lịch sử booking của user ─────────────────────────────
     @GetMapping("/my-bookings")
-    public ResponseEntity<List<Booking>> getMyBookings() {
-        String email = SecurityContextHolder.getContext()
-                .getAuthentication().getName();
-        return ResponseEntity.ok(bookingService.getMyBookings(email));
+    public ResponseEntity<List<BookingResponseDTO>> getMyBookings(
+            @RequestHeader("Authorization") String authHeader) {
+        String email = jwtUtil.extractEmail(
+                authHeader.replace("Bearer ", ""));
+        List<BookingResponseDTO> bookings = bookingService.getMyBookings(email).stream()
+                .map(BookingResponseDTO::from)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(bookings);
     }
 
 
@@ -155,17 +152,16 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Yêu cầu hủy đơn thành công"),
             @ApiResponse(responseCode = "400", description = "Không thể tự hủy do vi phạm thời hạn hủy hoặc lỗi xử lý khác")
     })
-    // ── Hủy booking ───────────────────────────────────────────────
     @PutMapping("/{id}/cancel-by-user")
     public ResponseEntity<?> cancelByUser(
             @PathVariable String id,
             @RequestBody(required = false) Map<String, String> body) {
-        String email  = SecurityContextHolder.getContext()
+        String email = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
         String reason = body != null ? body.getOrDefault("reason", "") : "";
         try {
-            return ResponseEntity.ok(
-                    bookingService.cancelBookingByUser(id, email, reason));
+            Booking booking = bookingService.cancelBookingByUser(id, email, reason);
+            return ResponseEntity.ok(BookingResponseDTO.from(booking));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -177,18 +173,17 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Gửi đánh giá thành công"),
             @ApiResponse(responseCode = "400", description = "Bạn chưa hoàn thành chuyến đi này hoặc dữ liệu đánh giá không hợp lệ")
     })
-    // ── Rating tour ───────────────────────────────────────────────
     @PostMapping("/{id}/rate")
     public ResponseEntity<?> rateTour(
             @PathVariable String id,
             @RequestBody Map<String, Object> body) {
-        String email      = SecurityContextHolder.getContext()
+        String email = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
-        int    rating     = Integer.parseInt(body.get("rating").toString());
+        int rating = Integer.parseInt(body.get("rating").toString());
         String reviewText = (String) body.getOrDefault("reviewText", "");
         try {
-            return ResponseEntity.ok(
-                    bookingService.rateTour(id, email, rating, reviewText));
+            Booking booking = bookingService.rateTour(id, email, rating, reviewText);
+            return ResponseEntity.ok(BookingResponseDTO.from(booking));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -200,14 +195,15 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công"),
             @ApiResponse(responseCode = "403", description = "Không có quyền xem thông tin tour của tác giả khác")
     })
-    // ── Author: lấy bookings của tour ────────────────────────────
     @GetMapping("/tour/{tourId}")
     public ResponseEntity<?> getTourBookings(@PathVariable String tourId) {
         String email = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
         try {
-            return ResponseEntity.ok(
-                    bookingService.getTourBookingsForAuthor(tourId, email));
+            List<BookingResponseDTO> bookings = bookingService.getTourBookingsForAuthor(tourId, email).stream()
+                    .map(BookingResponseDTO::from)
+                    .collect(Collectors.toList());
+            return ResponseEntity.ok(bookings);
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -219,13 +215,13 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Điểm danh check-in thành công"),
             @ApiResponse(responseCode = "400", description = "Lỗi khi xử lý điểm danh")
     })
-    // ── Author: Check-in ──────────────────────────────────────────
     @PutMapping("/{id}/check-in")
     public ResponseEntity<?> checkIn(@PathVariable String id) {
         String email = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
         try {
-            return ResponseEntity.ok(bookingService.checkIn(id, email));
+            Booking booking = bookingService.checkIn(id, email);
+            return ResponseEntity.ok(BookingResponseDTO.from(booking));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -237,13 +233,13 @@ public class BookingController {
             @ApiResponse(responseCode = "200", description = "Đánh dấu vắng mặt thành công"),
             @ApiResponse(responseCode = "400", description = "Lỗi trong quá trình xử lý")
     })
-    // ── Author: No-show ───────────────────────────────────────────
     @PutMapping("/{id}/no-show")
     public ResponseEntity<?> noShow(@PathVariable String id) {
         String email = SecurityContextHolder.getContext()
                 .getAuthentication().getName();
         try {
-            return ResponseEntity.ok(bookingService.markNoShow(id, email));
+            Booking booking = bookingService.markNoShow(id, email);
+            return ResponseEntity.ok(BookingResponseDTO.from(booking));
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
@@ -254,7 +250,6 @@ public class BookingController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Kiểm tra thành công")
     })
-    // ── Kiểm tra user đã join tour chưa ──────────────────────────
     @GetMapping("/check-joined")
     public ResponseEntity<?> checkJoined(
             @RequestParam String tourId) {

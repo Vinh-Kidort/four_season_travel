@@ -1,5 +1,6 @@
 package com.fourseasontravel.backend.controller;
 
+import com.fourseasontravel.backend.dto.TourResponseDTO;
 import com.fourseasontravel.backend.model.Tour;
 import com.fourseasontravel.backend.service.SearchService;
 import com.fourseasontravel.backend.service.TourService;
@@ -11,6 +12,8 @@ import org.springframework.web.bind.annotation.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
+
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,8 +41,12 @@ public class TourController {
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công")
     })
     @GetMapping
-    public ResponseEntity<List<Tour>> getAll() {
-        return ResponseEntity.ok(tourService.getAllTours());
+    public ResponseEntity<List<TourResponseDTO>> getAll() {
+        return ResponseEntity.ok(
+                tourService.getAllTours().stream()
+                        .map(TourResponseDTO::from)
+                        .collect(Collectors.toList())
+        );
     }
 
 
@@ -60,8 +67,10 @@ public class TourController {
             @ApiResponse(responseCode = "200", description = "Lấy danh sách thành công")
     })
     @GetMapping("/location/{locationId}")
-    public ResponseEntity<List<Tour>> getToursByLocation(@PathVariable String locationId) {
-        return ResponseEntity.ok(tourService.getToursByLocationId(locationId));
+    public ResponseEntity<List<TourResponseDTO>> getToursByLocation(@PathVariable String locationId) {
+        return ResponseEntity.ok(tourService.getToursByLocationId(locationId).stream()
+                .map(TourResponseDTO::from)
+                .collect(Collectors.toList()));
     }
 
 
@@ -113,8 +122,10 @@ public class TourController {
     })
     // API Lấy Tour chờ duyệt
     @GetMapping("/pending")
-    public ResponseEntity<List<Tour>> getPendingTours() {
-        return ResponseEntity.ok(tourService.getPendingTours());
+    public ResponseEntity<List<TourResponseDTO>> getPendingTours() {
+        return ResponseEntity.ok(tourService.getPendingTours().stream()
+                .map(TourResponseDTO::from)
+                .collect(Collectors.toList()));
     }
 
 
@@ -124,10 +135,12 @@ public class TourController {
             @ApiResponse(responseCode = "41" , description = "Chưa đăng nhập")
     })
     @GetMapping("/my-tours")
-    public ResponseEntity<List<Tour>> getMyTours() {
+    public ResponseEntity<List<TourResponseDTO>> getMyTours() {
         // Lấy email người dùng đang đăng nhập từ Token
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
-        return ResponseEntity.ok(tourService.getToursByAuthor(email));
+        return ResponseEntity.ok(tourService.getToursByAuthor(email).stream()
+                .map(TourResponseDTO::from)
+                .collect(Collectors.toList()));
     }
 
 
@@ -137,8 +150,12 @@ public class TourController {
     })
     // Lấy danh sách Tour ĐÃ DUYỆT để Admin xem và có thể Xóa
     @GetMapping("/approved")
-    public ResponseEntity<List<Tour>> getApprovedTours() {
-        return ResponseEntity.ok(tourService.getAllTours()); // Gọi lại hàm getAll cũ
+    public ResponseEntity<List<TourResponseDTO>> getApprovedTours() {
+        return ResponseEntity.ok(
+                tourService.getAllTours().stream()
+                        .map(TourResponseDTO::from)
+                        .collect(Collectors.toList())
+        );
     }
 
 
@@ -148,8 +165,10 @@ public class TourController {
     })
     // Admin xem tất cả tour kể cả hết chỗ
     @GetMapping("/admin/all")
-    public ResponseEntity<List<Tour>> getAllForAdmin() {
-        return ResponseEntity.ok(tourService.getAllToursForAdmin());
+    public ResponseEntity<List<TourResponseDTO>> getAllForAdmin() {
+        return ResponseEntity.ok(tourService.getAllToursForAdmin().stream()
+                .map(TourResponseDTO::from)
+                .collect(Collectors.toList()));
     }
 
 

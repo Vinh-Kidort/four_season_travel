@@ -109,12 +109,12 @@ function SettingsPage() {
       .then(() => {
         setMessage('✅ ' + t('settings.updateSuccess'));
         localStorage.setItem('userName', formData.name);
+        localStorage.setItem('userEmail', formData.email);
         let accounts = JSON.parse(localStorage.getItem('savedAccounts')) || [];
         accounts = accounts.map(acc =>
           acc.email === formData.email ? { ...acc, name: formData.name } : acc
         );
         localStorage.setItem('savedAccounts', JSON.stringify(accounts));
-        setTimeout(() => window.location.reload(), 1000);
       })
       .catch(() => setMessage('❌ ' + t('settings.updateError')));
   };

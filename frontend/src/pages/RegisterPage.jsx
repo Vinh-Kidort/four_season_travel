@@ -4,7 +4,8 @@ import { useTranslation } from 'react-i18next';
 import axios from '../api/axios';
 
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
-import { tokenManager } from '../api/tokenManager';
+import { clearAuthStorage, persistAuthData } from '../api/tokenManager';
+import { useAuth } from '../context/AuthContext';
 
 // ── Validate mật khẩu phía frontend ─────────────────────────
 const validatePassword = (password) => {
@@ -59,6 +60,7 @@ function RegisterPage() {
   
   const navigate = useNavigate();
   const { executeRecaptcha } = useGoogleReCaptcha();
+  const { login: authLogin } = useAuth();
 
   const [step, setStep] = useState(STEP.FORM);
   const [error, setError] = useState('');
@@ -178,6 +180,13 @@ function RegisterPage() {
     setLoading(true);
     setError('');
     try {
+      try {
+        await axios.post('/auth/logout', {}, { withCredentials: true });
+      } catch {
+        // ignore
+      }
+      clearAuthStorage();
+
       const res = await axios.post('/auth/register/verify-otp', {
         name: form.name,
         email: form.email,
@@ -186,10 +195,9 @@ function RegisterPage() {
       });
       // Đăng nhập tự động bằng AuthContext
       const { token, role, email, name } = res.data;
-      tokenManager.setToken(token);
-      localStorage.setItem('userEmail', email);
-      localStorage.setItem('userName', name);
-      localStorage.setItem('userRole', role || 'USER');
+      const userData = { name, email, role: role || 'USER' };
+      persistAuthData(token, userData);
+      authLogin({ accessToken: token, ...userData });
 
       navigate('/');
     } catch (err) {

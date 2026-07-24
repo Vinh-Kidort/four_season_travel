@@ -7,6 +7,7 @@ import { BrowserRouter } from 'react-router-dom';
 import './i18n';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3';
+import { AuthProvider } from './context/AuthContext';
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 
@@ -19,9 +20,11 @@ const initializeApp = () => {
           reCaptchaKey={process.env.REACT_APP_RECAPTCHA_SITE_KEY}
           language="vi"
         >
-          <ErrorBoundary>
-            <App />
-          </ErrorBoundary>
+          <AuthProvider>
+            <ErrorBoundary>
+              <App />
+            </ErrorBoundary>
+          </AuthProvider>
         </GoogleReCaptchaProvider>
       </GoogleOAuthProvider>
     </BrowserRouter>

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import axios from '../api/axios';
+import { getAiPredictUrl } from '../utils/aiConfig';
 
 const AI_LOCATION_MAP = {
   'cau_vang_da_nang' : 'Cầu Vàng Đà Nẵng',
@@ -139,7 +140,13 @@ function SearchPage() {
     const formData = new FormData();
     formData.append('file', file);
     try {
-      const res = await fetch(process.env.REACT_APP_AI_PREDICT_URL, { method: 'POST', body: formData });
+      const aiUrl = getAiPredictUrl(process.env);
+      if (!aiUrl) {
+        showToast('error', t('searchPage.aiError'), 'AI endpoint chưa được cấu hình.');
+        return;
+      }
+
+      const res = await fetch(aiUrl, { method: 'POST', body: formData });
       const data = await res.json();
       if (data.success) {
         const { location, confidence } = data;

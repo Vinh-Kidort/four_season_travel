@@ -4,7 +4,8 @@ import axios from '../api/axios';
 import { GoogleLogin } from '@react-oauth/google';
 import { useGoogleReCaptcha } from 'react-google-recaptcha-v3';
 import { useTranslation } from 'react-i18next'; 
-import { tokenManager } from '../api/tokenManager';
+import { clearAuthStorage, persistAuthData } from '../api/tokenManager';
+import { useAuth } from '../context/AuthContext';
 
 function LoginPage() {
   const { t } = useTranslation(); // KHỞI TẠO HOOK DỊCH
@@ -21,6 +22,16 @@ function LoginPage() {
   const [forgotLoading, setForgotLoading] = useState(false);
   
   const navigate = useNavigate();
+  const { login: authLogin } = useAuth();
+
+  const clearPreviousSession = async () => {
+    try {
+      await axios.post('/auth/logout', {}, { withCredentials: true });
+    } catch {
+      // Ignore lỗi nếu chưa có session hoặc backend chưa hỗ trợ
+    }
+    clearAuthStorage();
+  };
 
   
 
@@ -29,13 +40,14 @@ function LoginPage() {
     setError(null);
     try {
       const captchaToken = await executeRecaptcha('login');
+      await clearPreviousSession();
       const response = await axios.post('/auth/login', { ...form, captchaToken });
       
       // Lấy token (Chấp nhận cả accessToken hoặc token)
       const { accessToken, token, role, email, name } = response.data; 
       const jwtToken = accessToken || token;
 
-      loginAndSave(email, name, jwtToken, role); 
+      await loginAndSave(email, name, jwtToken, role); 
     } catch (err) {
       setError(err.response?.data?.error || t('loginPage.errorMessage'));
     }
@@ -43,21 +55,20 @@ function LoginPage() {
 
   const handleGoogleSuccess = async (credentialResponse) => {
     try {
+      await clearPreviousSession();
       const response = await axios.post('/auth/google', { token: credentialResponse.credential });
       const { token, role, email, name } = response.data;
-      loginAndSave(email, name, token, role, true);
+      await loginAndSave(email, name, token, role, true);
     } catch (err) {
       setError(t('loginPage.googleError'));
     }
   };
 
-  const loginAndSave = (email, name, token, role) => {
+  const loginAndSave = async (email, name, token, role) => {
     if (token) {
-      tokenManager.setToken(token);
+      persistAuthData(token, { name, email, role });
+      authLogin({ accessToken: token, name, email, role });
     }
-    localStorage.setItem('userEmail', email);
-    localStorage.setItem('userName', name);
-    localStorage.setItem('userRole', role);
     navigate('/');
   };
 

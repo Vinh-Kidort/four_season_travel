@@ -146,7 +146,8 @@ const resources = {
         "noSchedule": "Chưa có lịch khởi hành",
         "ticketPrice": "Giá vé",
         "bookNow": "Đặt ngay",
-        "selectDate": "Chọn ngày"
+        "selectDate": "Chọn ngày",
+        "selectDateToSeePrice": "Chọn ngày khởi hành để xem giá"
       },
       "locationsPage": {
         "title": "Địa điểm du lịch",
@@ -713,7 +714,8 @@ const resources = {
         "noSchedule": "No schedule available",
         "ticketPrice": "Ticket price",
         "bookNow": "Book now",
-        "selectDate": "Select date"
+        "selectDate": "Select date",
+        "selectDateToSeePrice": "Select a departure date to see price"
       },
       "locationsPage": {
         "title": "Tourist Locations",

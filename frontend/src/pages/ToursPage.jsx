@@ -21,9 +21,30 @@ function ToursPage() {
         regMap[loc.id] = isEng && loc.regionEn ? loc.regionEn : loc.region;
       });
       setRegionsMap(regMap);
-      setTours(tourRes.data);
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const sorted = [...tourRes.data].sort((a, b) => {
+        const aHasDep = (a.departures || []).some(d => {
+          if (d.status !== 'active') return false;
+          const s = new Date(d.startDate);
+          s.setHours(0, 0, 0, 0);
+          return s >= today;
+        });
+        const bHasDep = (b.departures || []).some(d => {
+          if (d.status !== 'active') return false;
+          const s = new Date(d.startDate);
+          s.setHours(0, 0, 0, 0);
+          return s >= today;
+        });
+        if (aHasDep === bHasDep) return 0;
+        return aHasDep ? -1 : 1; // có departure → lên trên
+      });
+
+      setTours(sorted);
       setLoading(false);
-    }).catch(() => setLoading(false));
+    })
   }, [isEng]);
 
   if (loading) return (
