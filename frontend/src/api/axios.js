@@ -1,9 +1,10 @@
 import axios from 'axios';
 import { tokenManager, clearAuthStorage } from './tokenManager';
 import { shouldForceLogoutOnRefreshFailure } from './authSession';
+import { getApiBaseUrl } from './config';
 
 const api = axios.create({
-  baseURL:         import.meta.env.REACT_API_BASE_URL || 'http://localhost:8080/api/v1',
+  baseURL: getApiBaseUrl(process.env),
   withCredentials: true, // ← Tự động gửi HttpOnly Cookie
   headers: { 'Content-Type': 'application/json' },
 });
@@ -80,8 +81,7 @@ api.interceptors.response.use(
       try {
         // Cookie refreshToken tự gửi kèm nhờ withCredentials
         const res = await axios.post(
-          `${import.meta.env.REACT_API_BASE_URL
-            || 'http://localhost:8080/api/v1'}/auth/refresh-token`,
+          `${getApiBaseUrl(process.env)}/auth/refresh-token`,
           {},
           { withCredentials: true }
         );

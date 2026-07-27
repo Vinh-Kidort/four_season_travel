@@ -4,6 +4,7 @@ import React, {
 } from 'react';
 import axios     from '../api/axios';
 import axiosRaw  from 'axios';
+import { getApiBaseUrl } from '../api/config';
 import { tokenManager, clearAuthStorage, persistAuthData } from '../api/tokenManager';
 
 const AuthContext = createContext();
@@ -18,8 +19,7 @@ export function AuthProvider({ children }) {
       try {
         // Cookie refreshToken tự gửi kèm
         const res = await axiosRaw.post(
-          `${import.meta.env.REACT_API_BASE_URL
-            || 'http://localhost:8080/api/v1'}/auth/refresh-token`,
+          `${getApiBaseUrl(process.env)}/auth/refresh-token`,
           {},
           { withCredentials: true }
         );

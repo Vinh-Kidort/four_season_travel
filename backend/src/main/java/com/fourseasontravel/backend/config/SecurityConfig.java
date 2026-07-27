@@ -1,5 +1,6 @@
 package com.fourseasontravel.backend.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import com.fourseasontravel.backend.security.JwtFilter;
 import com.fourseasontravel.backend.security.RateLimitFilter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,9 @@ import java.util.List;
 @Configuration
 public class SecurityConfig {
 
+    @Value("${cors.allowed-origins}")
+    private String[] allowedOrigins;
+
     // Công cụ băm mật khẩu
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -33,7 +37,7 @@ public class SecurityConfig {
         http
                 .cors(cors -> cors.configurationSource(request -> {
                     CorsConfiguration config = new CorsConfiguration();
-                    config.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:3001", "http://localhost:5173", "https://four-season-travel-sapper.vercel.app"));
+                    config.setAllowedOrigins(List.of(allowedOrigins));
                     config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
                     config.setAllowedHeaders(List.of("*"));
                     config.setAllowCredentials(true);
