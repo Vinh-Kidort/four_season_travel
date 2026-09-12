@@ -29,6 +29,9 @@ function ContentTable({ items, type, onDelete, onManageDep }) {
           const title = type === 'tours' ? item.name : item.title;
           const detailUrl = type === 'tours' ? `/tours/${item.id}` : `/articles/${item.id}`;
 
+          const isApproved = item.isApproved ?? item.approved;
+          const isRejected = item.isRejected ?? item.rejected;
+
           return (
             <tr key={item.id} className="hover:bg-gray-50 transition">
               {/* Cột tiêu đề — dài thì ... không xuống hàng */}
@@ -45,11 +48,11 @@ function ContentTable({ items, type, onDelete, onManageDep }) {
 
               {/* Cột trạng thái */}
               <td className="px-4 py-3 text-center">
-                {item.isRejected ? (
+                {isRejected ? (
                   <span className="inline-flex items-center gap-1 bg-red-50 text-red-600 border border-red-200 px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap">
                     ❌ Bị từ chối
                   </span>
-                ) : item.isApproved ? (
+                ) : isApproved ? (
                   <span className="inline-flex items-center gap-1 bg-green-50 text-green-600 border border-green-200 px-2.5 py-1 rounded-full text-xs font-bold whitespace-nowrap">
                     ✅ Đã duyệt
                   </span>
@@ -62,36 +65,26 @@ function ContentTable({ items, type, onDelete, onManageDep }) {
 
               {/* Cột thao tác */}
               <td className="px-4 py-3 text-center">
-                {item.isApproved && !item.isRejected ? (
+                {isApproved && !isRejected ? (
                   <>
-                    <Link
-                      to={detailUrl}
-                      className="inline-block bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-700 transition whitespace-nowrap"
-                    >
+                    <Link to={detailUrl} className="inline-block bg-blue-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-blue-700 transition whitespace-nowrap">
                       🌐 Xem Web
                     </Link>
 
-                    {type === 'tours' && item.isApproved && (
+                    {type === 'tours' && (
                       <button
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); onManageDep(item); }}
-                        className="inline-block bg-green-600 text-white px-3 py-1 rounded-lg
-                          text-xs font-bold hover:bg-green-700 transition whitespace-nowrap ml-1">
+                        className="inline-block bg-green-600 text-white px-3 py-1 rounded-lg text-xs font-bold hover:bg-green-700 transition whitespace-nowrap ml-1"
+                      >
                         📅 Ngày KH
                       </button>
                     )}
-
-                    
                   </>
-                ) : !item.isApproved && !item.isRejected ? (
-                  // Chờ duyệt → nút xóa bản nháp
-                  <button
-                    onClick={() => onDelete(type, item.id)}
-                    className="text-red-400 hover:text-red-600 text-xs font-bold underline transition whitespace-nowrap"
-                  >
+                ) : !isApproved && !isRejected ? (
+                  <button onClick={() => onDelete(type, item.id)} className="text-red-400 hover:text-red-600 text-xs font-bold underline transition whitespace-nowrap">
                     🗑️ Xóa nháp
                   </button>
                 ) : (
-                  // Bị từ chối → không có thao tác
                   <span className="text-gray-300 text-xs">—</span>
                 )}
               </td>
@@ -119,9 +112,9 @@ function AuthorDashboard() {
   // Thống kê nhanh
   const stats = (items) => ({
     total:    items.length,
-    approved: items.filter(i => i.isApproved && !i.isRejected).length,
-    pending:  items.filter(i => !i.isApproved && !i.isRejected).length,
-    rejected: items.filter(i => i.isRejected).length,
+    approved: items.filter(i => (i.isApproved || i.approved) && !(i.isRejected || i.rejected)).length,
+    pending:  items.filter(i => !(i.isApproved || i.approved) && !(i.isRejected || i.rejected)).length,
+    rejected: items.filter(i => (i.isRejected || i.rejected)).length,
   });
 
   const fetchData = () => {

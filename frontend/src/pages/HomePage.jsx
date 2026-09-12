@@ -113,262 +113,309 @@ function HomePage() {
   );
 
   return (
-    <div className="overflow-x-hidden">
+    <div className="relative min-h-screen bg-slate-50 overflow-hidden">
 
-      {/* ── Hero ── */}
-      <div className="relative text-white text-center bg-cover bg-center bg-no-repeat
-        py-20 sm:py-28 md:py-36 px-4 overflow-hidden w-full"
-        style={{ backgroundImage: "url('https://images.unsplash.com/photo-1555921015-5532091f6026?q=80&w=2070&auto=format&fit=crop')" }}>
-        <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+      {/* Background decoration */}
+      <div
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          opacity-[0.08]
+        "
+        style={{
+          backgroundImage: `
+            radial-gradient(#2563eb 1px, transparent 1px)
+          `,
+          backgroundSize: '28px 28px',
+        }}
+      />
 
-        <div className="relative z-10 max-w-4xl mx-auto">
-          {/* Title — nhỏ hơn trên mobile */}
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 drop-shadow-lg leading-tight">
-            {t('homePage.title')}
-          </h1>
-          <p className="text-base sm:text-lg md:text-xl mb-8 text-gray-100 drop-shadow-md">
-            {t('homePage.subtitle')}
-          </p>
+      {/* Nội dung thật */}
+      <div className="relative z-10">
 
-          {/* SearchBar — full width trên mobile */}
-          <div className="flex justify-center px-0 sm:px-4 relative z-10" ref={searchBarRef}>
-            <div className="w-full max-w-2xl drop-shadow-2xl">
-              <SearchBar />
+
+        {/* ── Hero ── */}
+        <div className="relative text-white text-center bg-cover bg-center bg-no-repeat
+          py-20 sm:py-28 md:py-36 px-4 overflow-hidden w-full"
+          style={{ backgroundImage: "url('https://images.unsplash.com/photo-1555921015-5532091f6026?q=80&w=2070&auto=format&fit=crop')" }}>
+          <div className="absolute inset-0 bg-black/40 pointer-events-none" />
+
+          <div className="relative z-10 max-w-4xl mx-auto">
+            {/* Title — nhỏ hơn trên mobile */}
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-2 drop-shadow-lg leading-tight">
+              {t('homePage.title')}
+            </h1>
+            <p className="text-base sm:text-lg md:text-xl mb-8 text-gray-100 drop-shadow-md">
+              {t('homePage.subtitle')}
+            </p>
+
+            {/* SearchBar — full width trên mobile */}
+            <div className="flex justify-center px-0 sm:px-4 relative z-10" ref={searchBarRef}>
+              <div className="w-full max-w-2xl drop-shadow-2xl">
+                <SearchBar />
+              </div>
             </div>
-          </div>
 
-          {/* Quick keywords — ẩn khi quá nhỏ */}
-          <div className="hidden sm:flex flex-wrap justify-center gap-2 mt-5">
-            {['Hội An', 'Đà Lạt', 'Phú Quốc', 'Sapa', 'Hạ Long'].map(kw => (
-              <Link key={kw} to={`/search?q=${kw}`}
-                className="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white
-                  text-sm px-4 py-1.5 rounded-full transition border border-white/30">
-                {kw}
-              </Link>
-            ))}
+            {/* Quick keywords — ẩn khi quá nhỏ */}
+            <div className="hidden sm:flex flex-wrap justify-center gap-2 mt-5">
+              {['Hội An', 'Đà Lạt', 'Phú Quốc', 'Sapa', 'Hạ Long'].map(kw => (
+                <Link key={kw} to={`/search?q=${kw}`}
+                  className="bg-white/20 hover:bg-white/30 backdrop-blur-md text-white
+                    text-sm px-4 py-1.5 rounded-full transition border border-white/30">
+                  {kw}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ── Quick Links ── */}
-      <div className="max-w-5xl mx-auto px-4 py-10 sm:py-14 grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <Link to="/locations"
-          className="bg-white rounded-xl shadow-md p-6 sm:p-8 hover:shadow-lg text-center transition">
-          <div className="text-4xl sm:text-5xl mb-3">🗺️</div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1">
-            {t('homePage.locations')}
-          </h2>
-          <p className="text-gray-500 text-sm sm:text-base">{t('homePage.locationsDesc')}</p>
-        </Link>
-        <Link to="/tours"
-          className="bg-white rounded-xl shadow-md p-6 sm:p-8 hover:shadow-lg text-center transition">
-          <div className="text-4xl sm:text-5xl mb-3">🧳</div>
-          <h2 className="text-xl sm:text-2xl font-bold text-gray-800 mb-1">
-            {t('homePage.tours')}
-          </h2>
-          <p className="text-gray-500 text-sm sm:text-base">{t('homePage.toursDesc')}</p>
-        </Link>
-      </div>
-
-      {/* ── Section Header reusable ── */}
-      {/* ================= ĐỊA ĐIỂM ================= */}
-      <div className="bg-gray-50 py-10 sm:py-14">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-end mb-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
-                ❤️ {t('homePage.topLocations', 'Top Địa Điểm Được Yêu Thích')}
-              </h2>
-              <p className="text-gray-500 text-sm mt-1 hidden sm:block">
-                {t('homePage.topLocationsDesc', 'Dựa trên đánh giá thực tế của hàng ngàn du khách')}
-              </p>
-            </div>
+        {/* ── Quick Links ── */}
+        <div className="max-w-7xl mx-auto px-4 py-10 sm:py-14">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Link to="/locations"
-              className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full
-                border-2 border-blue-100 bg-blue-50 text-blue-700 font-bold text-sm
-                hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all">
-              {t('homePage.viewAll', 'Xem tất cả')} →
-            </Link>
-          </div>
-
-          <ScrollRow scrollRef={locationScrollRef}>
-            {topLocations.map(loc => (
-              <Link to={`/locations/${loc.id}`} key={loc.id}
-                className="w-[200px] xs:w-[220px] sm:w-[260px] md:w-[320px] flex-none snap-start
-                  bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl
-                  transition-all duration-300 group flex-shrink-0">
-                <div className="relative h-40 sm:h-48">
-                  {loc.images?.length > 0 ? (
-                    <img src={loc.images[0]} alt={getLocName(loc)}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"/>
-                  ) : (
-                    <div className="bg-blue-100 w-full h-full flex justify-center items-center text-4xl">🏝️</div>
-                  )}
-                  <RatingBadge rating={loc.averageRating} count={loc.reviewCount} />
-                </div>
-                <div className="p-4">
-                  <h3 className="font-bold text-base sm:text-lg text-gray-800 line-clamp-1">
-                    {getLocName(loc)}
-                  </h3>
-                  <p className="text-xs sm:text-sm text-gray-500">{getRegion(loc)}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">({loc.reviewCount || 0} {t('homePage.reviews', 'đánh giá')})</p>
-                </div>
-              </Link>
-            ))}
-          </ScrollRow>
-
-          <div className="mt-3 text-center md:hidden">
-            <Link to="/locations" className="text-blue-600 font-bold text-sm hover:underline">
-              {t('homePage.viewAllLocations', 'Xem tất cả địa điểm')} →
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* ================= TOUR ================= */}
-      <div className="bg-white py-10 sm:py-14">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-end mb-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
-                🧳 {t('homePage.topTours', 'Các Tour Du Lịch Hàng Đầu')}
+              className="bg-gradient-to-br from-blue-50/90 to-white backdrop-blur-md 
+                rounded-2xl border border-blue-100/80 p-6 sm:p-8 
+                shadow-lg hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 
+                text-center group">
+              <div className="text-4xl sm:text-5xl mb-4 group-hover:scale-110 transition duration-300">🗺️</div>
+              <h2 className="text-lg sm:text-xl font-bold text-blue-900 mb-2">
+                {t('homePage.locations', 'Địa điểm du lịch')}
               </h2>
-              <p className="text-gray-500 text-sm mt-1 hidden sm:block">
-                {t('homePage.topToursDesc', 'Trải nghiệm tuyệt vời với những tour có đánh giá cao nhất')}
+              <p className="text-blue-700/70 text-xs sm:text-sm">
+                {t('homePage.locationsDesc', 'Khám phá các tọa độ check-in hot nhất cả nước')}
               </p>
-            </div>
+            </Link>
+            
             <Link to="/tours"
-              className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full
-                border-2 border-green-100 bg-green-50 text-green-700 font-bold text-sm
-                hover:bg-green-600 hover:text-white hover:border-green-600 transition-all">
-              {t('homePage.viewAll', 'Xem tất cả')} →
+              className="bg-gradient-to-br from-emerald-50/90 to-white backdrop-blur-md 
+                rounded-2xl border border-emerald-100/80 p-6 sm:p-8 
+                shadow-lg hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 
+                text-center group">
+              <div className="text-4xl sm:text-5xl mb-4 group-hover:scale-110 transition duration-300">🧳</div>
+              <h2 className="text-lg sm:text-xl font-bold text-emerald-900 mb-2">
+                {t('homePage.tours', 'Tour du lịch hấp dẫn')}
+              </h2>
+              <p className="text-emerald-700/70 text-xs sm:text-sm">
+                {t('homePage.toursDesc', 'Đặt tour dễ dàng với mức giá ưu đãi tốt nhất')}
+              </p>
             </Link>
-          </div>
 
-          <ScrollRow scrollRef={tourScrollRef}>
-            {topTours.map(tour => (
-              <Link to={`/tours/${tour.id}`} key={tour.id}
-                className="w-[200px] xs:w-[220px] sm:w-[280px] md:w-[340px] flex-none snap-start
-                  group flex flex-col bg-white rounded-xl shadow-sm border border-gray-100
-                  hover:shadow-xl transition-all duration-300 flex-shrink-0">
-                <div className="relative h-44 sm:h-52 overflow-hidden rounded-t-xl">
-                  {tour.images?.length > 0 ? (
-                    <img src={tour.images[0]?.url} alt={getTourName(tour)}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"/>
-                  ) : (
-                    <div className="bg-green-100 w-full h-full flex justify-center items-center text-4xl">🧳</div>
-                  )}
-                  <RatingBadge rating={tour.averageRating} count={tour.reviewCount} />
-                </div>
-                <div className="p-4 flex flex-col flex-grow">
-                  <h3 className="font-bold text-base sm:text-lg text-gray-800 mb-2
-                    line-clamp-2 group-hover:text-blue-600 transition">
-                    {getTourName(tour)}
-                  </h3>
-                  <div className="text-xs sm:text-sm text-gray-500 space-y-1 mb-3 flex-grow">
-                    <div>⏱️ {tour.duration}</div>
-                    <div className="line-clamp-1">📍 {tour.itinerary}</div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 border-t border-gray-100">
-                    <span className="text-blue-600 font-bold text-base sm:text-lg">
-                      {tour.price?.toLocaleString('vi-VN')}đ
-                    </span>
-                    <span className="text-xs bg-green-50 text-green-600
-                      px-2 py-0.5 rounded-full font-medium">
-                      {t('toursPage.bookNow')}
-                    </span>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </ScrollRow>
-
-          <div className="mt-3 text-center md:hidden">
-            <Link to="/tours" className="text-green-600 font-bold text-sm hover:underline">
-              {t('homePage.viewAllTours', 'Xem tất cả tour')} →
+            <Link to="/articles"
+              className="bg-gradient-to-br from-amber-50/90 to-white backdrop-blur-md 
+                rounded-2xl border border-amber-100/80 p-6 sm:p-8 
+                shadow-lg hover:shadow-xl hover:-translate-y-1.5 transition-all duration-300 
+                text-center group">
+              <div className="text-4xl sm:text-5xl mb-4 group-hover:scale-110 transition duration-300">📖</div>
+              <h2 className="text-lg sm:text-xl font-bold text-amber-950 mb-2">
+                {t('homePage.articles', 'Cẩm nang & Kinh nghiệm')}
+              </h2>
+              <p className="text-amber-900/70 text-xs sm:text-sm">
+                {t('homePage.articlesDesc', 'Bí quyết và mẹo vặt khi đi du lịch tự túc')}
+              </p>
             </Link>
           </div>
         </div>
-      </div>
-
-      {/* ================= BÀI VIẾT ================= */}
-      <div className="bg-gray-50 py-10 sm:py-14">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="flex justify-between items-end mb-6">
-            <div>
-              <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
-                📖 {t('homePage.topArticles', 'Cẩm Nang Du Lịch Nổi Bật')}
-              </h2>
-              <p className="text-gray-500 text-sm mt-1 hidden sm:block">
-                {t('homePage.topArticlesDesc', 'Những bài viết được cộng đồng đánh giá cao nhất')}
-              </p>
+        {/* ── Section Header reusable ── */}
+        {/* ================= ĐỊA ĐIỂM ================= */}
+        <div className="bg-gray-50 py-10 sm:py-14">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex justify-between items-end mb-6">
+              <div>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
+                  ❤️ {t('homePage.topLocations', 'Top Địa Điểm Được Yêu Thích')}
+                </h2>
+                <p className="text-gray-500 text-sm mt-1 hidden sm:block">
+                  {t('homePage.topLocationsDesc', 'Dựa trên đánh giá thực tế của hàng ngàn du khách')}
+                </p>
+              </div>
+              <Link to="/locations"
+                className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full
+                  border-2 border-blue-100 bg-blue-50 text-blue-700 font-bold text-sm
+                  hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all">
+                {t('homePage.viewAll', 'Xem tất cả')} →
+              </Link>
             </div>
-            <Link to="/articles"
-              className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full
-                border-2 border-yellow-100 bg-yellow-50 text-yellow-700 font-bold text-sm
-                hover:bg-yellow-500 hover:text-white hover:border-yellow-500 transition-all">
-              {t('homePage.viewAll', 'Xem tất cả')} →
-            </Link>
-          </div>
 
-          <ScrollRow scrollRef={articleScrollRef}>
-            {topArticles.map(article => (
-              <Link to={`/articles/${article.id}`} key={article.id}
-                className="w-[200px] xs:w-[220px] sm:w-[280px] md:w-[360px] flex-none snap-start
-                  group flex flex-col bg-white rounded-xl shadow-sm border border-gray-100
-                  hover:shadow-xl transition-all duration-300 flex-shrink-0">
-                <div className="relative h-44 sm:h-52 overflow-hidden rounded-t-xl">
-                  {article.imageUrl ? (
-                    <img src={article.imageUrl} alt={getArtTitle(article)}
-                      className="w-full h-full object-cover group-hover:scale-105 transition duration-500"/>
-                  ) : (
-                    <div className="bg-yellow-100 w-full h-full flex justify-center items-center text-4xl">📖</div>
-                  )}
-                  <RatingBadge rating={article.averageRating} count={article.reviewCount} />
-                </div>
-                <div className="p-4 flex flex-col flex-grow">
-                  <h3 className="font-bold text-base sm:text-lg text-gray-800 mb-2
-                    line-clamp-2 group-hover:text-blue-600 transition">
-                    {getArtTitle(article)}
-                  </h3>
-                  <p className="text-gray-500 text-xs sm:text-sm line-clamp-2 mb-3 flex-grow">
-                    {getArtDesc(article)}
-                  </p>
-                  <div className="flex items-center justify-between pt-3
-                    border-t border-gray-100 mt-auto">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className="w-7 h-7 flex-shrink-0 bg-blue-100 text-blue-600
-                        rounded-full flex items-center justify-center font-bold text-xs">
-                        {article.author?.charAt(0).toUpperCase() || 'A'}
-                      </div>
-                      <span className="text-xs sm:text-sm font-bold text-gray-700 truncate max-w-[100px]">
-                        {article.authorName || article.author?.split('@')[0] || 'Ẩn danh'}
+            <ScrollRow scrollRef={locationScrollRef}>
+              {topLocations.map(loc => (
+                <Link to={`/locations/${loc.id}`} key={loc.id}
+                  className="w-[200px] xs:w-[220px] sm:w-[260px] md:w-[320px] flex-none snap-start
+                    bg-white rounded-xl shadow-md overflow-hidden hover:shadow-xl
+                    transition-all duration-300 group flex-shrink-0">
+                  <div className="relative h-40 sm:h-48">
+                    {loc.images?.length > 0 ? (
+                      <img src={loc.images[0]} alt={getLocName(loc)}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"/>
+                    ) : (
+                      <div className="bg-blue-100 w-full h-full flex justify-center items-center text-4xl">🏝️</div>
+                    )}
+                    <RatingBadge rating={loc.averageRating} count={loc.reviewCount} />
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-bold text-base sm:text-lg text-gray-800 line-clamp-1">
+                      {getLocName(loc)}
+                    </h3>
+                    <p className="text-xs sm:text-sm text-gray-500">{getRegion(loc)}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">({loc.reviewCount || 0} {t('homePage.reviews', 'đánh giá')})</p>
+                  </div>
+                </Link>
+              ))}
+            </ScrollRow>
+
+            <div className="mt-3 text-center md:hidden">
+              <Link to="/locations" className="text-blue-600 font-bold text-sm hover:underline">
+                {t('homePage.viewAllLocations', 'Xem tất cả địa điểm')} →
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* ================= TOUR ================= */}
+        <div className="bg-gray-50 py-10 sm:py-14">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex justify-between items-end mb-6">
+              <div>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
+                  🧳 {t('homePage.topTours', 'Các Tour Du Lịch Hàng Đầu')}
+                </h2>
+                <p className="text-gray-500 text-sm mt-1 hidden sm:block">
+                  {t('homePage.topToursDesc', 'Trải nghiệm tuyệt vời với những tour có đánh giá cao nhất')}
+                </p>
+              </div>
+              <Link to="/tours"
+                className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full
+                  border-2 border-green-100 bg-green-50 text-green-700 font-bold text-sm
+                  hover:bg-green-600 hover:text-white hover:border-green-600 transition-all">
+                {t('homePage.viewAll', 'Xem tất cả')} →
+              </Link>
+            </div>
+
+            <ScrollRow scrollRef={tourScrollRef}>
+              {topTours.map(tour => (
+                <Link to={`/tours/${tour.id}`} key={tour.id}
+                  className="w-[200px] xs:w-[220px] sm:w-[280px] md:w-[340px] flex-none snap-start
+                    group flex flex-col bg-white rounded-xl shadow-sm border border-gray-100
+                    hover:shadow-xl transition-all duration-300 flex-shrink-0">
+                  <div className="relative h-44 sm:h-52 overflow-hidden rounded-t-xl">
+                    {tour.images?.length > 0 ? (
+                      <img src={tour.images[0]?.url} alt={getTourName(tour)}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"/>
+                    ) : (
+                      <div className="bg-green-100 w-full h-full flex justify-center items-center text-4xl">🧳</div>
+                    )}
+                    <RatingBadge rating={tour.averageRating} count={tour.reviewCount} />
+                  </div>
+                  <div className="p-4 flex flex-col flex-grow">
+                    <h3 className="font-bold text-base sm:text-lg text-gray-800 mb-2
+                      line-clamp-2 group-hover:text-blue-600 transition">
+                      {getTourName(tour)}
+                    </h3>
+                    <div className="text-xs sm:text-sm text-gray-500 space-y-1 mb-3 flex-grow">
+                      <div>⏱️ {tour.duration}</div>
+                      <div className="line-clamp-1">📍 {tour.itinerary}</div>
+                    </div>
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                      <span className="text-blue-600 font-bold text-base sm:text-lg">
+                        {tour.price?.toLocaleString('vi-VN')}đ
+                      </span>
+                      <span className="text-xs bg-green-50 text-green-600
+                        px-2 py-0.5 rounded-full font-medium">
+                        {t('toursPage.bookNow')}
                       </span>
                     </div>
-                    {article.locationId && locationsMap[article.locationId] && (
-                      <div className="text-xs text-blue-600 font-medium bg-blue-50
-                        px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0 ml-2">
-                        <span>📍</span>
-                        <span className="truncate max-w-[80px]">
-                          {locationsMap[article.locationId]}
-                        </span>
-                      </div>
-                    )}
                   </div>
-                </div>
-              </Link>
-            ))}
-          </ScrollRow>
+                </Link>
+              ))}
+            </ScrollRow>
 
-          <div className="mt-3 text-center md:hidden">
-            <Link to="/articles" className="text-yellow-600 font-bold text-sm hover:underline">
-              {t('homePage.viewAllArticles', 'Xem tất cả cẩm nang')} →
-            </Link>
+            <div className="mt-3 text-center md:hidden">
+              <Link to="/tours" className="text-green-600 font-bold text-sm hover:underline">
+                {t('homePage.viewAllTours', 'Xem tất cả tour')} →
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
 
-    </div>
+        {/* ================= BÀI VIẾT ================= */}
+        <div className="bg-gray-50 py-10 sm:py-14">
+          <div className="max-w-7xl mx-auto px-4">
+            <div className="flex justify-between items-end mb-6">
+              <div>
+                <h2 className="text-xl sm:text-2xl md:text-3xl font-bold text-gray-800">
+                  📖 {t('homePage.topArticles', 'Cẩm Nang Du Lịch Nổi Bật')}
+                </h2>
+                <p className="text-gray-500 text-sm mt-1 hidden sm:block">
+                  {t('homePage.topArticlesDesc', 'Những bài viết được cộng đồng đánh giá cao nhất')}
+                </p>
+              </div>
+              <Link to="/articles"
+                className="hidden md:flex items-center gap-2 px-4 py-1.5 rounded-full
+                  border-2 border-yellow-100 bg-yellow-50 text-yellow-700 font-bold text-sm
+                  hover:bg-yellow-500 hover:text-white hover:border-yellow-500 transition-all">
+                {t('homePage.viewAll', 'Xem tất cả')} →
+              </Link>
+            </div>
+
+            <ScrollRow scrollRef={articleScrollRef}>
+              {topArticles.map(article => (
+                <Link to={`/articles/${article.id}`} key={article.id}
+                  className="w-[200px] xs:w-[220px] sm:w-[280px] md:w-[360px] flex-none snap-start
+                    group flex flex-col bg-white rounded-xl shadow-sm border border-gray-100
+                    hover:shadow-xl transition-all duration-300 flex-shrink-0">
+                  <div className="relative h-44 sm:h-52 overflow-hidden rounded-t-xl">
+                    {article.imageUrl ? (
+                      <img src={article.imageUrl} alt={getArtTitle(article)}
+                        className="w-full h-full object-cover group-hover:scale-105 transition duration-500"/>
+                    ) : (
+                      <div className="bg-yellow-100 w-full h-full flex justify-center items-center text-4xl">📖</div>
+                    )}
+                    <RatingBadge rating={article.averageRating} count={article.reviewCount} />
+                  </div>
+                  <div className="p-4 flex flex-col flex-grow">
+                    <h3 className="font-bold text-base sm:text-lg text-gray-800 mb-2
+                      line-clamp-2 group-hover:text-blue-600 transition">
+                      {getArtTitle(article)}
+                    </h3>
+                    <p className="text-gray-500 text-xs sm:text-sm line-clamp-2 mb-3 flex-grow">
+                      {getArtDesc(article)}
+                    </p>
+                    <div className="flex items-center justify-between pt-3
+                      border-t border-gray-100 mt-auto">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-7 h-7 flex-shrink-0 bg-blue-100 text-blue-600
+                          rounded-full flex items-center justify-center font-bold text-xs">
+                          {article.author?.charAt(0).toUpperCase() || 'A'}
+                        </div>
+                        <span className="text-xs sm:text-sm font-bold text-gray-700 truncate max-w-[100px]">
+                          {article.authorName || article.author?.split('@')[0] || 'Ẩn danh'}
+                        </span>
+                      </div>
+                      {article.locationId && locationsMap[article.locationId] && (
+                        <div className="text-xs text-blue-600 font-medium bg-blue-50
+                          px-2 py-0.5 rounded-full flex items-center gap-1 flex-shrink-0 ml-2">
+                          <span>📍</span>
+                          <span className="truncate max-w-[80px]">
+                            {locationsMap[article.locationId]}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </ScrollRow>
+
+            <div className="mt-3 text-center md:hidden">
+              <Link to="/articles" className="text-yellow-600 font-bold text-sm hover:underline">
+                {t('homePage.viewAllArticles', 'Xem tất cả cẩm nang')} →
+              </Link>
+            </div>
+          </div>
+        </div>
+
+      </div>
+     </div>
   );
 }
 

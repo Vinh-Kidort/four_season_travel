@@ -558,10 +558,25 @@ export function Navbar() {
             <div className="flex-1" />
 
             {!isAuthPage && (
-              <div className="flex items-center gap-5 flex-shrink-0 border-r border-gray-200 pr-5">
-                <Link to="/locations" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition">{t('menu.locations')}</Link>
-                <Link to="/tours" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition">{t('menu.tours')}</Link>
-                <Link to="/articles" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition">{t('menu.articles')}</Link>
+              <div className="flex items-center gap-2 flex-shrink-0 border-r border-gray-200 pr-5">
+                <Link 
+                  to="/locations" 
+                  className="px-3 py-2 rounded-lg text-gray-600 hover:text-blue-800 hover:bg-blue-50 font-semibold text-sm transition-all duration-200"
+                >
+                  {t('menu.locations')}
+                </Link>
+                <Link 
+                  to="/tours" 
+                  className="px-3 py-2 rounded-lg text-gray-600 hover:text-blue-800 hover:bg-blue-50 font-semibold text-sm transition-all duration-200"
+                >
+                  {t('menu.tours')}
+                </Link>
+                <Link 
+                  to="/articles" 
+                  className="px-3 py-2 rounded-lg text-gray-600 hover:text-blue-800 hover:bg-blue-50 font-semibold text-sm transition-all duration-200"
+                >
+                  {t('menu.articles')}
+                </Link>
               </div>
             )}
 
