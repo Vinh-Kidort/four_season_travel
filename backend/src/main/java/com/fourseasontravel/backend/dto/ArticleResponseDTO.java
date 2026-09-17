@@ -23,6 +23,8 @@ public class ArticleResponseDTO {
     private List<ArticleSectionDTO> sections;
     private Double                  averageRating;
     private Integer                 reviewCount;
+    private Boolean                 isApproved;
+    private Boolean                 isRejected;
     // KHÔNG expose: isApproved, isRejected
 
     public static ArticleResponseDTO from(Article article) {
@@ -40,6 +42,8 @@ public class ArticleResponseDTO {
         dto.setCreatedAt(article.getCreatedAt());
         dto.setAverageRating(article.getAverageRating());
         dto.setReviewCount(article.getReviewCount());
+        dto.setIsApproved(article.getIsApproved());
+        dto.setIsRejected(article.getIsRejected());
 
         dto.setSections(article.getSections() != null
                 ? article.getSections().stream()

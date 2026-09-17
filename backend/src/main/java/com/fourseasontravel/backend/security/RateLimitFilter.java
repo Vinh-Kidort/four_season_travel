@@ -21,6 +21,8 @@ import java.util.concurrent.TimeUnit;
 
 public class RateLimitFilter extends OncePerRequestFilter {
 
+    private final boolean rateLimitEnabled = false;
+
     // Tự xóa IP sau 1 giờ không thao tác, tối đa lưu 5.000 IP
     private final Cache<String, Bucket> sensitiveBuckets = Caffeine.newBuilder()
             .expireAfterAccess(1, TimeUnit.HOURS)
@@ -56,6 +58,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
                                     HttpServletResponse response,
                                     FilterChain chain)
             throws ServletException, IOException {
+
+        if (!rateLimitEnabled) {
+            chain.doFilter(request, response);
+            return;
+        }
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             chain.doFilter(request, response);

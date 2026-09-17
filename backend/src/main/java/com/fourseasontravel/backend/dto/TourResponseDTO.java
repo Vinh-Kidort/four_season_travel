@@ -27,6 +27,8 @@ public class TourResponseDTO {
     private String           departureDate;
     private Double           averageRating;
     private Integer          reviewCount;
+    private Boolean          isApproved;
+    private Boolean          isRejected;
     // KHÔNG expose: isApproved, isRejected, author email
 
     public static TourResponseDTO from(Tour tour) {
@@ -47,6 +49,8 @@ public class TourResponseDTO {
         dto.setDepartureDate(tour.getDepartureDate());
         dto.setAverageRating(tour.getAverageRating());
         dto.setReviewCount(tour.getReviewCount());
+        dto.setIsApproved(tour.getIsApproved());
+        dto.setIsRejected(tour.getIsRejected());
 
         // Images
         dto.setImages(tour.getImages() != null

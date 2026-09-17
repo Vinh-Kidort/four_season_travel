@@ -25,7 +25,10 @@ public class ArticleService {
 
 
     public List<Article> getAllArticles() {
-        return articleRepository.findByIsApprovedTrue();
+        return articleRepository.findAll()
+                .stream()
+                .filter(article -> !Boolean.TRUE.equals(article.getIsRejected()))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     // Thêm hàm lấy bài chờ duyệt cho Admin
@@ -77,7 +80,6 @@ public class ArticleService {
             }
             existing.setImageUrl(articleDetails.getImageUrl());
             existing.setCreatedAt(articleDetails.getCreatedAt());
-            existing.setIsApproved(articleDetails.getIsApproved());
             return articleRepository.save(existing);
         }
         return null;
@@ -121,7 +123,10 @@ public class ArticleService {
     }
 
     public List<Article> getApprovedArticles() {
-        return articleRepository.findByIsApprovedTrue();
+        return articleRepository.findByIsApprovedTrue()
+                .stream()
+                .filter(article -> !Boolean.TRUE.equals(article.getIsRejected()))
+                .collect(java.util.stream.Collectors.toList());
     }
 
     public void authorDeleteArticle(String id, String authorEmail) {

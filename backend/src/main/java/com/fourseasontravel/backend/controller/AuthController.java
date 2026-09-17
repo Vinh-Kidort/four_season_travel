@@ -16,7 +16,9 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -46,6 +48,12 @@ public class AuthController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Value("${app.auth.refresh-cookie.secure:false}")
+    private boolean refreshCookieSecure;
+
+    @Value("${app.auth.refresh-cookie.same-site:Lax}")
+    private String refreshCookieSameSite;
 
     @Operation(summary = "Gửi mã OTP đăng ký tài khoản", description = "Xác thực reCAPTCHA và gửi mã OTP xác nhận về hòm thư email của khách hàng đăng ký mới.")
     @ApiResponses({
@@ -86,7 +94,9 @@ public class AuthController {
                     body.get("name"),
                     body.get("email"),
                     body.get("password"),
-                    body.get("otp")
+                    body.get("otp"),
+                    request.getHeader("User-Agent"),
+                    request.getRemoteAddr()
             );
 
             String accessToken = tokens.get("accessToken");
@@ -340,14 +350,43 @@ public class AuthController {
     }
 
     private void setRefreshTokenCookie(HttpServletResponse response, String token) {
-        response.addHeader("Set-Cookie", String.format(
-                "refreshToken=%s; HttpOnly; Secure; Path=/api/v1/auth/refresh-token; Max-Age=%d; SameSite=Strict",
-                token, 7 * 24 * 60 * 60));
+        ResponseCookie legacyCookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(refreshCookieSecure)
+                .path("/api/v1/auth/refresh-token")
+                .maxAge(0)
+                .sameSite(refreshCookieSameSite)
+                .build();
+        response.addHeader("Set-Cookie", legacyCookie.toString());
+
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", token)
+                .httpOnly(true)
+                .secure(refreshCookieSecure)
+                .path("/api/v1/auth")
+                .maxAge(7 * 24 * 60 * 60)
+                .sameSite(refreshCookieSameSite)
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
     }
 
     private void clearRefreshTokenCookie(HttpServletResponse response) {
-        response.addHeader("Set-Cookie",
-                "refreshToken=; HttpOnly; Secure; Path=/api/v1/auth/refresh-token; Max-Age=0; SameSite=Strict");
+        ResponseCookie cookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(refreshCookieSecure)
+                .path("/api/v1/auth")
+                .maxAge(0)
+                .sameSite(refreshCookieSameSite)
+                .build();
+        response.addHeader("Set-Cookie", cookie.toString());
+
+        ResponseCookie legacyCookie = ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(refreshCookieSecure)
+                .path("/api/v1/auth/refresh-token")
+                .maxAge(0)
+                .sameSite(refreshCookieSameSite)
+                .build();
+        response.addHeader("Set-Cookie", legacyCookie.toString());
     }
 
     private String getRefreshTokenFromCookie(HttpServletRequest request) {

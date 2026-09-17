@@ -2,6 +2,7 @@ package com.fourseasontravel.backend.controller;
 
 import com.fourseasontravel.backend.model.User;
 import com.fourseasontravel.backend.service.ArticleService;
+import com.fourseasontravel.backend.security.JwtUtil;
 import com.fourseasontravel.backend.service.UserService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +30,9 @@ class UserControllerTest {
     @MockBean
     private ArticleService articleService;
 
+    @MockBean
+    private JwtUtil jwtUtil;
+
     @Test
     @WithMockUser(username = "test@example.com")
     void whenGetCurrentUser_thenReturnUserDto() throws Exception {
@@ -38,7 +42,7 @@ class UserControllerTest {
         user.setId("1");
         user.setEmail(userEmail);
         user.setName("Test User");
-        user.setPassword("password"); // This should not be exposed
+        user.setPassword("password");
 
         given(userService.getUserByEmail(userEmail)).willReturn(Optional.of(user));
 

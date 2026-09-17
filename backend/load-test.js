@@ -15,24 +15,27 @@ export const options = {
 
 export default function () {
     const payload = JSON.stringify({
-        tourId:         '6a3df7e3bfa2325e3e26fbe3',
-        customerName:   'Test User',
-        customerEmail:  'test@test.com',
+        tourId:         '6a2ad4a41efff56d35bd2948',
+        customerName:   'Bong',
+        customerEmail:  'b@gmail.com',
         numberOfPeople: 1,
-        bookingCode:    'FST-TEST-001',
     });
 
     const res = http.post(
         'http://localhost:8080/api/v1/bookings',
         payload,
         { headers: { 'Content-Type': 'application/json',
-                'Authorization': 'Bearer YOUR_TOKEN' } }
+                'Authorization': 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJiQGdtYWlsLmNvbSIsInJvbGUiOiJBVVRIT1IiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzg5MjkxNzI4LCJleHAiOjE3ODkyOTI2Mjh9.keNMZ2xYpOCDkg0xmMxRVyVx15IFFFWhm0irMnAmcxo' } }
     );
 
     check(res, {
         'status 201': r => r.status === 201,
         'response < 2s': r => r.timings.duration < 2000,
     });
+
+    if (res.status !== 200 && res.status !== 201) {
+        console.log("Lý do bị từ chối: " + res.body);
+    }
 
     sleep(1);
 }

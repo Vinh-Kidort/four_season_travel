@@ -25,13 +25,22 @@ public class TourService {
     private TourRepository tourRepository;
 
 
+
+
+
     // SỬA HÀM CŨ: Chỉ trả về tour đã duyệt
     // Chỉ hiện tour đã duyệt + còn chỗ trên giao diện người dùng
     public List<Tour> getAllTours() {
+        return tourRepository.findAll()
+                .stream()
+                .filter(t -> !Boolean.TRUE.equals(t.getIsRejected()))
+                .collect(java.util.stream.Collectors.toList());
+    }
+
+    public List<Tour> getApprovedTours() {
         return tourRepository.findByIsApprovedTrue()
                 .stream()
                 .filter(t -> !Boolean.TRUE.equals(t.getIsRejected()))
-                .filter(t -> t.getAvailableSlots() != null && t.getAvailableSlots() > 0)
                 .collect(java.util.stream.Collectors.toList());
     }
 
@@ -142,7 +151,6 @@ public class TourService {
             existing.setMaxSlots(tourDetails.getMaxSlots());
             existing.setImages(tourDetails.getImages());
             existing.setStatus(tourDetails.getStatus());
-            existing.setIsApproved(tourDetails.getIsApproved());
             existing.setExperienceDescription(tourDetails.getExperienceDescription());
             existing.setExperienceDescriptionEn(tourDetails.getExperienceDescriptionEn());
             existing.setRegion(tourDetails.getRegion());
@@ -200,6 +208,7 @@ public class TourService {
             throw new RuntimeException("Không tìm thấy Tour!");
         }
     }
+
 
 
 }

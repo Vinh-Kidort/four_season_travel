@@ -9,6 +9,7 @@ import org.springframework.stereotype.Component;
 
 import java.security.Key;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtUtil {
@@ -43,6 +44,7 @@ public class JwtUtil {
     public String generateRefreshToken(String email) {
         return Jwts.builder()
                 .setSubject(email)
+                .setId(UUID.randomUUID().toString())
                 .claim("type", "refresh")
                 .setIssuedAt(new Date())
                 .setExpiration(new Date(System.currentTimeMillis() + REFRESH_TOKEN_EXPIRY))

@@ -152,7 +152,7 @@ public class TourController {
     @GetMapping("/approved")
     public ResponseEntity<List<TourResponseDTO>> getApprovedTours() {
         return ResponseEntity.ok(
-                tourService.getAllTours().stream()
+                tourService.getApprovedTours().stream()
                         .map(TourResponseDTO::from)
                         .collect(Collectors.toList())
         );

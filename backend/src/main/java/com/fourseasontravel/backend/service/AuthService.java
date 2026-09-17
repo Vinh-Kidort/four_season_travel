@@ -61,7 +61,8 @@ public class AuthService {
 
     // ── BƯỚC 2: Xác thực OTP + lưu user vào DB
     public Map<String, String> verifyAndRegister(String name, String email,
-                                                 String password, String otp) {
+                                                 String password, String otp,
+                                                 String userAgent, String ip) {
         // Verify OTP
         OtpService.OtpResult result = otpService.verifyOtp(email, otp);
 
@@ -95,8 +96,16 @@ public class AuthService {
         userRepository.save(user);
 
         // Tự động login và trả về token
-        String token = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
-        return createAuthResponse(user, token);
+        String accessToken = jwtUtil.generateAccessToken(user.getEmail(), user.getRole());
+        String refreshToken = jwtUtil.generateRefreshToken(user.getEmail());
+        refreshTokenService.saveRefreshToken(refreshToken, user.getEmail(), userAgent, ip);
+
+        return createAuthResponse(user, accessToken, refreshToken);
+    }
+
+    public Map<String, String> verifyAndRegister(String name, String email,
+                                                 String password, String otp) {
+        return verifyAndRegister(name, email, password, otp, "", "");
     }
 
     // ── Validate mật khẩu
@@ -242,9 +251,11 @@ public class AuthService {
     }
 
     // ── HÀM HỖ TRỢ ĐÓNG GÓI DỮ LIỆU TRẢ VỀ FRONTEND
-    private Map<String, String> createAuthResponse(User user, String token) {
+    private Map<String, String> createAuthResponse(User user, String accessToken, String refreshToken) {
         Map<String, String> response = new HashMap<>();
-        response.put("token", token);
+        response.put("accessToken", accessToken);
+        response.put("refreshToken", refreshToken);
+        response.put("token", accessToken);
         response.put("role", user.getRole());
         response.put("email", user.getEmail());
         response.put("name", user.getName());
